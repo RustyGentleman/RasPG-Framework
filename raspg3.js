@@ -452,14 +452,24 @@ class Component {
 //# Components
 class Stateful extends Component {
 	static reference = '_states'
-	data = {}
+	#data = {}
+
+	get data() {
+		new structuredClone(this.#data)
+	}
 
 	/** Gets the value correlated with the given variable name.
 	 * @param {string} variable Convention: no spaces, camelCase.
 	 */
 	get(variable) {
 		HookModule.run('Stateful.instance.get', arguments, this)
-		return this.data[variable]
+
+		if (typeof(variable) !== 'string')
+			throw EXCEPTIONS.brokenEnforcedType('Stateful.instance.get.variable', 'string')
+		if (!this.#data.hasOwnProperty(variable))
+			return LOGS.elementNotRegisteredInCollection(variable, 'Stateful.instance.data')
+
+		return this.#data[variable]
 	}
 	/** Sets the value correlated with the given variable name. Returns `true`, if successful, and `false`, if the variable does not exist.
 	 * @param {string} variable Convention: no spaces, camelCase.
@@ -477,11 +487,11 @@ class Stateful extends Component {
 			default:
 				throw EXCEPTIONS.brokenEnforcedType('Stateful.instance.set.value', 'number | boolean | undefined')
 		}
-		if (!this.data.hasOwnProperty(variable)) {
+		if (!this.#data.hasOwnProperty(variable))
 			LOGS.elementNotRegisteredInCollection(variable, 'Stateful.instance.data')
 			return false
-		}
-		const previous = this.data[variable]
+		const previous = this.#data[variable]
+		this.#data[variable] = value
 		this.data[variable] = value
 		EventModule.emitPropertyEvents({
 			object: this.parent,
@@ -513,9 +523,9 @@ class Stateful extends Component {
 			default:
 				throw EXCEPTIONS.brokenEnforcedType('Stateful.instance.set.initialValue', 'number | boolean | undefined')
 		}
-		if (this.data[variable] === undefined)
+		if (this.#data[variable] === undefined)
 			return false
-		this.data[variable] = initialValue
+		this.#data[variable] = initialValue
 		EventModule.emit(`states.created`, {
 			object: this.parent,
 			variable,
