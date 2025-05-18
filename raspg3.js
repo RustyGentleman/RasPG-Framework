@@ -350,12 +350,12 @@ class GameObject {
 		HookModule.run('after:GameObject.instance.addComponent', arguments, this)
 	}
 	/** Adds the given components to the object. Returns `false` if all components were already present (no-op).
-	 * @param {Component | string} component Either the component subclass itself, an instance of the wanted component subclass, or its name.
+	 * @param {...Component | ...string} args Either the component subclass itself, an instance of the wanted component subclass, or its name.
 	 */
-	addComponents(components) {
+	addComponents() {
 		HookModule.run('before:GameObject.instance.addComponents', arguments, this)
 		let ret = false
-		for (const component of components)
+		for (const component of arguments)
 			if (this.addComponent(component))
 				ret = true
 		HookModule.run('after:GameObject.instance.addComponents', arguments, this)
