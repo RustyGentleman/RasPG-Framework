@@ -362,9 +362,26 @@ class GameObject {
 		return ret
 	}
 	/** Returns the component of the given class in the object, if found, or `null`, if not found.
-	 * @param {Class} component Either the component subclass itself, or an instance of the wanted component subclass.
+	 * @param {Component | string} component Either the component subclass itself, an instance of the wanted component subclass, or a string to be resolved to the component subclass.
 	 */
-	component(component) {}
+	component(component) {
+		HookModule.run('before:GameObject.instance.component', arguments, this)
+
+		let actualComponent
+		if (typeof(component) === 'string')
+			actualComponent = Component.resolve(component)
+		else if (typeof(component) === 'object')
+			if (Component.isPrototypeOf(component.constructor))
+				actualComponent = component.constructor
+			else
+				throw EXCEPTIONS.notComponent()
+		else if (typeof(component) === 'function')
+			if (!Component.isPrototypeOf(component))
+				throw EXCEPTIONS.notComponent()
+
+		HookModule.run('after:GameObject.instance.component', arguments, this)
+		return this._components.find(e => e instanceof actualComponent) || null
+	}
 	/** Returns whether or not the object has the given component or not.
 	 * @param {Class} component Either the component subclass itself, or an instance of the wanted component subclass.
 	 */
