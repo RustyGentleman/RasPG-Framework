@@ -731,8 +731,6 @@ class Tangible extends Component {
 	 */
 	removeFromWorld(passOn) {
 		HookModule.run('before:Tangible.instance.clearLocation', arguments, this)
-		if (passOn === false)
-			this.location._container.remove(this.parent)
 
 		const previous = this.#location
 		if (passOn !== false)
