@@ -704,7 +704,7 @@ class Tangible extends Component {
 		return actualObject._tangible.location === this.location
 	}
 }
-class Countable {
+class Countable extends Component {
 	static reference = '_count'
 	static requires = [Tangible]
 	#count = 0
@@ -720,7 +720,7 @@ class Countable {
 	 */
 	subtract(amount) {}
 }
-class Containing {
+class Containing extends Component {
 	static reference = '_container'
 	static requires = [Tangible]
 	#contents = new Set()
