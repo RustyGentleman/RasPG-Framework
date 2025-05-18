@@ -650,6 +650,10 @@ class Perceptible extends Component {
 	 */
 	perceive(sense, context, sensor) {
 		HookModule.run('before:Perceptible.instance.perceive', arguments, this)
+		if (typeof(sense) !== 'string')
+			throw EXCEPTIONS.brokenEnforcedType('Perceptible.instance.perceive.sense', 'string')
+		if (typeof(context) !== 'string')
+			throw EXCEPTIONS.brokenEnforcedType('Perceptible.instance.perceive.context', 'string')
 		if (!this.#perceptions.has(sense))
 			return null
 		if (!GameObject.isPrototypeOf(sensor))
