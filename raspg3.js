@@ -248,6 +248,9 @@ class GameObject {
 	static get all() {
 		return new Map(this.#all)
 	}
+	get id() {
+		return this.#id + ''
+	}
 
 	/** Returns the object with the given ID, if found, or `null`, if not found.
 	 * @param {string} id Convention: all lowercase, no spaces.
@@ -295,10 +298,6 @@ class GameObject {
 		HookModule.run('after:GameObject.resolve', arguments, this)
 		return object
 	}
-	get id() {
-		return this.#id + ''
-	}
-
 	/** Adds the given component to the object. Returns `false` if the component was already present (no-op).
 	 * @param {Component | string} component Either the component subclass itself, an instance of the wanted component subclass, or its name.
 	 */
@@ -317,8 +316,8 @@ class GameObject {
 		else
 			throw EXCEPTIONS.notComponent
 
-		if (this.tags.has('PROXIED'))
-			instance = new Proxy(instance, EventModule._proxyHandler)
+		// if (this.tags.has('PROXIED'))
+		// 	instance = new Proxy(instance, EventModule._proxyHandler)
 
 		if (this._components.find(component => component.constructor === instance.constructor))
 			return null
@@ -802,7 +801,7 @@ class Actionable extends Component {
 	}
 
 	/** Registers an Action object into the component's registryn.
-	 * @param {string} name Convention: no spaces, camelCase. Can be organized into domains (i.e. 'item.drop')
+	 * @param {string} name Convention: no spaces, camelCase. Can be organized into domains (i.e. 'item.drop').
 	 * @param {Action} actionObject
 	 */
 	static registerAction(name, actionObject) {
@@ -813,7 +812,7 @@ class Actionable extends Component {
 		HookModule.run('after:Actionable.registerAction', arguments, this)
 	}
 	/** Returns whether the given action name is registered as an action in the component's registry, and not currently disabled.
-	 * @param {string} action Convention: no spaces, camelCase. Can be organized into domains (i.e. 'item.drop')
+	 * @param {string} action Convention: no spaces, camelCase. Can be organized into domains (i.e. 'item.drop').
 	 */
 	static isAction(action) {
 		HookModule.run('Actionable.isAction', arguments, this)
@@ -854,26 +853,22 @@ class Actionable extends Component {
 		return true
 	}
 	/** Adds the action name (or all in the array) to the object's allowed actions. Returns `true`, if successful, or `false`, if (at least one) error occurs.
-	 * @param {string | Array<string>} action Convention: no spaces, camelCase. Can be organized into domains (i.e. 'item.drop')
+	 * @param {string | Array<string>} action Convention: no spaces, camelCase. Can be organized into domains (i.e. 'item.drop').
 	 */
 	agentsCan(action) {
 		HookModule.run('before:Actionable.instance.agentsCan', arguments, this)
 		if (typeof(action) !== 'string')
 			throw EXCEPTIONS.brokenEnforcedType('Actionable.instance.agentsCan.action', 'string')
 		if (typeof(action) === 'string') {
-			if (!Actionable.isAction(action)) {
-				LOGS.elementNotRegisteredInCollection(action, 'Actionable.#actions')
-				return false
-			}
+			if (!Actionable.isAction(action))
+				return LOGS.elementNotRegisteredInCollection(action, 'Actionable.#actions')
 			this.#actions.add(action)
 		}
 		let ret = true
 		if (action instanceof Array)
 			for (const name of action) {
-				if (!Actionable.isAction(action)) {
-					LOGS.elementNotRegisteredInCollection(name, 'Actionable.#actions')
-					ret = false
-				}
+				if (!Actionable.isAction(action))
+					ret = LOGS.elementNotRegisteredInCollection(name, 'Actionable.#actions')
 				else this.#actions.add(name)
 			}
 		EventModule.emit('actions.added', { object: this.parent, action: name })
@@ -881,23 +876,23 @@ class Actionable extends Component {
 		return ret
 	}
 	/** Removes the action name (or all in the array) from the object's allowed actions. Returns `true`, if action(s) were present and removed, or `false`, if (at least one) already wasn't.
-	 * @param {string | Array<string>} action Convention: no spaces, camelCase. Can be organized into domains (i.e. 'item.drop')
+	 * @param {string | Array<string>} action Convention: no spaces, camelCase. Can be organized into domains (i.e. 'item.drop').
 	 */
 	agentsCannot(action) {
 		HookModule.run('before:Actionable.instance.agentsCannot', arguments, this)
 		if (typeof(action) !== 'string')
 			throw EXCEPTIONS.brokenEnforcedType('Actionable.instance.agentsCannot.action', 'string')
 		if (typeof(action) === 'string') {
-			if (!this.#actions.has(action))
-				return false
+			if (!Actionable.isAction(action))
+				return LOGS.elementNotRegisteredInCollection(action, 'Actionable.#actions')
 			this.#actions.delete(action)
 			return true
 		}
 		let ret = true
 		if (action instanceof Array)
 			for (const name of action) {
-				if (!this.#actions.has(action))
-					ret = false
+				if (!Actionable.isAction(action))
+					ret = LOGS.elementNotRegisteredInCollection(name, 'Agentive.instance.#acts')
 				else this.#actions.delete(name)
 			}
 		EventModule.emit('actions.removed', { object: this.parent, action: name })
@@ -921,7 +916,7 @@ class Agentive {
 	}
 
 	/** Registers an Act object into the component's registry.
-	 * @param {string} name Convention: no spaces, camelCase. Can be organized into domains (i.e. 'item.drop')
+	 * @param {string} name Convention: no spaces, camelCase. Can be organized into domains (i.e. 'item.drop').
 	 * @param {Act} actObject
 	 */
 	static registerAct(name, actObject) {
@@ -932,7 +927,7 @@ class Agentive {
 		HookModule.run('after:Agentive.registerAct', arguments, this)
 	}
 	/** Returns whether the given act name is registered as an act in the component's registry, and not currently disabled.
-	 * @param {string} act Convention: no spaces, camelCase. Can be organized into domains (i.e. 'item.drop')
+	 * @param {string} act Convention: no spaces, camelCase. Can be organized into domains (i.e. 'item.drop').
 	 */
 	static isAct(act) {
 		HookModule.run('Actionable.isAction', arguments, this)
@@ -973,26 +968,22 @@ class Agentive {
 		return true
 	}
 	/** Adds the act name (or all in the array) to the object's allowed acts. Returns `true`, if successful, or `false`, if (at least one) error occurs.
-	 * @param {string | Array<string>} act Convention: no spaces, camelCase. Can be organized into domains (i.e. 'item.drop')
+	 * @param {string | Array<string>} act Convention: no spaces, camelCase. Can be organized into domains (i.e. 'item.drop').
 	 */
 	can(act) {
 		HookModule.run('before:Agentive.instance.can', arguments, this)
 		if (typeof(act) !== 'string')
 			throw EXCEPTIONS.brokenEnforcedType('Agentive.instance.can.act', 'string')
 		if (typeof(act) === 'string') {
-			if (!Agentive.isAction(act)) {
-				LOGS.elementNotRegisteredInCollection(act, 'Agentive.#acts')
-				return false
-			}
+			if (!Agentive.isAction(act))
+				return LOGS.elementNotRegisteredInCollection(act, 'Agentive.instance.#acts')
 			this.#acts.add(act)
 		}
 		let ret = true
 		if (act instanceof Array)
 			for (const name of act) {
-				if (!Agentive.isAction(act)) {
-					LOGS.elementNotRegisteredInCollection(name, 'Agentive.#acts')
-					ret = false
-				}
+				if (!Agentive.isAction(act))
+					ret = LOGS.elementNotRegisteredInCollection(name, 'Agentive.instance.#acts')
 				else this.#acts.add(name)
 			}
 		EventModule.emit('acts.added', { object: this.parent, act: name })
@@ -1000,21 +991,21 @@ class Agentive {
 		return ret
 	}
 	/** Removes the act name (or all in the array) from the object's allowed acts. Returns `true`, if act(s) were present and removed, or `false`, if (at least one) already wasn't.
-	 * @param {string | Array<string>} act Convention: no spaces, camelCase. Can be organized into domains (i.e. 'item.drop')
+	 * @param {string | Array<string>} act Convention: no spaces, camelCase. Can be organized into domains (i.e. 'item.drop').
 	 */
 	cannot(act) {
 		HookModule.run('before:Agentive.instance.cannot', arguments, this)
 		if (typeof(act) === 'string') {
-			if (!this.#acts.has(act))
-				return false
+			if (!Agentive.isAct(act))
+				return LOGS.elementNotRegisteredInCollection(act, 'Agentive.instance.#acts')
 			this.#acts.delete(act)
 			return true
 		}
 		let ret = true
 		if (act instanceof Array)
 			for (const name of act) {
-				if (!this.#acts.has(act))
-					ret = false
+				if (!Agentive.isAct(act))
+					ret = LOGS.elementNotRegisteredInCollection(name, 'Agentive.instance.#acts')
 				else this.#acts.delete(name)
 			}
 		EventModule.emit('acts.removed', { object: this.parent, act: name })
