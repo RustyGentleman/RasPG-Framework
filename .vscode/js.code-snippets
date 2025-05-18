@@ -1,0 +1,71 @@
+{
+	"Type enforcement": {
+		"scope": "javascript",
+		"prefix": "enforce",
+		"body": [
+			"if (typeof($1) !== '$2')",
+			"\tthrow EXCEPTIONS.brokenEnforcedType('$3.$4.$1', '$2')",
+			"$0",
+		],
+		"description": ""
+	},
+	"Method template": {
+		"scope": "javascript",
+		"prefix": "method",
+		"body": [
+			"/** $4. Returns `true`, if successful, and `false`, if an error occurs.",
+			"*/",
+			"$2($3) {",
+			"\tHookModule.run('before:$1.$2', arguments, this)",
+			"",
+			"\t// Type-checking",
+			"\t// Guard clauses",
+			"",
+			"\t$0",
+			"",
+			"\tHookModule.run('after:$1.$2', arguments, this)",
+			"}",
+		],
+		"description": ""
+	},
+	"Method template body": {
+		"scope": "javascript",
+		"prefix": "body",
+		"body": [
+			"HookModule.run('before:$1.$2', arguments, this)",
+			"",
+			"// Type-checking",
+			"// Guard clauses",
+			"",
+			"$0",
+			"",
+			"HookModule.run('after:$1.$2', arguments, this)",
+		],
+		"description": ""
+	},
+	"Emit custom event": {
+		"scope": "javascript",
+		"prefix": "emit",
+		"body": [
+			"EventModule.emit('$1.$2', {",
+			"\tobject: this.parent,",
+			"\t$0",
+			"})",
+		],
+		"description": ""
+	},
+	"Emit property events": {
+		"scope": "javascript",
+		"prefix": "emitPropertyEvents",
+		"body": [
+			"EventModule.emitPropertyEvents({",
+			"\tobject: $2,",
+			"\tproperty: $3,",
+			"\tprevious,",
+			"\tcurrent: $4",
+			"}, '$1.')",
+			"$0",
+		],
+		"description": ""
+	},
+}
