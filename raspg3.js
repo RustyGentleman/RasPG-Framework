@@ -225,7 +225,7 @@ class HookModule {
 
 //# Classes
 class GameObject {
-	static all = new Map()
+	static #all = new Map()
 	#id
 	tags = new Set()
 	_components = new Set()
@@ -237,7 +237,7 @@ class GameObject {
 	constructor(id, options) {
 		HookModule.run('before:GameObject.constructor', arguments, this)
 
-		if (GameObjects.all.has(id))
+		if (GameObject.#all.has(id))
 			throw EXCEPTIONS.idConflict(id)
 		if (typeof(id) !== 'string')
 			throw EXCEPTIONS.brokenEnforcedType('GameObject.id', 'string')
@@ -245,12 +245,16 @@ class GameObject {
 		HookModule.run('after:GameObject.constructor', arguments, this)
 	}
 
+	static get all() {
+		return new Map(this.#all)
+	}
+
 	/** Returns the object with the given ID, if found, or `null`, if not found.
 	 * @param {string} id Convention: all lowercase, no spaces.
 	 */
 	static find(id) {
 		HookModule.run('GameObject.find', arguments, this)
-		return this.all.find(e => e.id === id) || null
+		return this.#all.find(e => e.id === id) || null
 	}
 	/** Attempts to resolve an object ID to an instance. Optionally checks if it inherits from a given class, and/ir if it contains a given component or set of components.
 	 *
