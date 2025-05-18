@@ -5,7 +5,7 @@
 /** @typedef {{tags: Array<string>, components: Array<Component>, watchProperties: boolean}} GameObjectOptions */
 /** @typedef {{proto: Function, component: Component, components: Iterable<Component>, operation: string, silent: boolean}} GameObjectResolveOptions */
 /** @typedef {{context: PerceptionContext, description: string | PerceptionDescriptionFunction}} Perception */
-/** @typedef {'direct' | 'inContainer' | 'inRoom' | 'adjacentRoom | 'onObject'} PerceptionContext */
+/** @typedef {string | 'direct' | 'inContainer' | 'inRoom' | 'adjacentRoom' | 'onObject'} PerceptionContext */
 /** @typedef {(sensor: GameObject, target: GameObject) => string} PerceptionDescriptionFunction */
 /** @typedef {{predicate: (agent: GameObject) => boolean, callback: (agent: GameObject) => (void | string)}} Action */
 /** @typedef {{predicate: (object: GameObject) => boolean, callback: (object: GameObject) => (void | string)}} Act */
@@ -598,25 +598,26 @@ class Perceptible extends Component {
 		EventModule.emit('perceptions.descriptions.set')
 		HookModule.run('after:Perceptible.instance.setDescriptions', arguments, this)
 	}
-	/** Add a perception to the object, for a given sense, in a particular context.
+	/** Add a perception to the object, for a given sense, in a particular context. Returns `true`, if there was no perception set for the given sense and context for the given sense, and `false`
 	 * @param {string} sense Convention: no spaces, camelCase.
 	 * @param {Perception} perception
+	 * @param {PerceptionContext} context
+	 * @param {string | PerceptionDescriptionFunction} description
 	 */
-	addPerception(sense, perception) {
+	addPerception(sense, context, description) {
 		HookModule.run('before:Perceptible.instance.setPerception', arguments, this)
 		if (typeof(sense) !== 'string')
 			throw EXCEPTIONS.brokenEnforcedType('Perceptible.instance.addPerception.sense', 'string')
-		if (typeof(perception) !== 'object')
-			throw EXCEPTIONS.brokenEnforcedType('Perceptible.instance.addPerception.perception', 'object (Perception)')
+		if (typeof(context) !== 'string')
+			throw EXCEPTIONS.brokenEnforcedType('Perceptible.instance.addPerception.context', 'string')
+		if (typeof(description) !== 'string' && typeof(description) !== 'function')
+			throw EXCEPTIONS.brokenEnforcedType('Perceptible.instance.addPerception.description', 'string | () => string')
 		if (!this.#perceptions.has(sense))
 			this.#perceptions.set(sense, new Map())
-		this.#perceptions.get(sense).set(perception.context, perception.description)
-		this.parent._strings.set(`sense.${sense}.${perception.context}`, perception.description)
-		EventModule.emit(`perceptions.added`, {
-			object: this.parent,
-			sense,
-			context: perception.context
-		})
+		this.#perceptions.get(sense).set(context, description)
+		this.parent._strings.set(`sense.${sense}.${context}`, description)
+
+		EventModule.emit(`perceptions.added`, { object: this.parent, sense, context })
 		HookModule.run('after:Perceptible.instance.setPerception', arguments, this)
 	}
 	removePerception(sense, context) {}
