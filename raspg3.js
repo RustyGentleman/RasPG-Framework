@@ -227,7 +227,7 @@ class HookModule {
 class GameObject {
 	static #all = new Map()
 	#id
-	tags = new Set()
+	#tags = new Set()
 	_components = new Set()
 
 	/**
@@ -264,6 +264,9 @@ class GameObject {
 	}
 	get id() {
 		return this.#id + ''
+	}
+	get tags() {
+		return new Set(this.#tags)
 	}
 
 	/** Returns the object with the given ID, if found, or `null`, if not found.
@@ -376,7 +379,7 @@ class GameObject {
 		if (!actualComponent)
 			throw EXCEPTIONS.notComponent()
 
-		return !!this.component(component)
+		return !!this.component(actualComponent)
 	}
 	/** Adds a tag to the object. Returns `true`, if the tag wasn't present, or `false`, if it already was (no-op).
 	 * @param {string} tag Convention: all caps, past tense.
@@ -385,9 +388,11 @@ class GameObject {
 		HookModule.run('before:GameObject.instance.tag', arguments, this)
 		if (typeof(tag) !== 'string')
 			throw EXCEPTIONS.brokenEnforcedType('GameObject.instance.tag.tag', 'string')
-		if (this.tags.has(tag))
+		if (this.#tags.has(tag))
 			return false
-		this.tags.add(tag)
+
+		this.#tags.add(tag)
+
 		HookModule.run('after:GameObject.instance.tag', arguments, this)
 		return true
 	}
@@ -398,9 +403,10 @@ class GameObject {
 		HookModule.run('before:GameObject.instance.untag', arguments, this)
 		if (typeof(tag) !== 'string')
 			throw EXCEPTIONS.brokenEnforcedType('GameObject.instance.untag.tag', 'string')
-		if (!this.tags.has(tag))
+		if (!this.#tags.has(tag))
 			return false
-		this.tags.delete(tag)
+
+		this.#tags.delete(tag)
 		HookModule.run('after:GameObject.instance.untag', arguments, this)
 		return true
 	}
@@ -409,7 +415,8 @@ class GameObject {
 	 */
 	isTagged(tag) {
 		HookModule.run('GameObject.instance.isTagged', arguments, this)
-		return (this.tags.has(tag))
+
+		return (this.#tags.has(tag))
 	}
 	/** Serializes the object and all its components in the form of a JSON-compatible object.
 	 */
