@@ -2,7 +2,7 @@
 /** @typedef {{event: string, callback: EventCallback, owner: GameObject, once: boolean}} EventListener */
 /** @typedef {(owner: GameObject, data: EventData) => void} EventCallback */
 /** @typedef {{object: GameObject, property: string, previous: any, current: any}} EventData */
-/** @typedef {{tags: Array<string>, components: Array<Component>, watchProperties: boolean}} GameObjectSettings */
+/** @typedef {{tags: Array<string>, components: Array<Component>, watchProperties: boolean}} GameObjectOptions */
 /** @typedef {{proto: Function, component: Component, components: Iterable<Component>, operation: string, silent: boolean}} GameObjectResolveOptions */
 /** @typedef {{context: PerceptionContext, description: string | PerceptionDescriptionFunction}} Perception */
 /** @typedef {'direct' | 'inContainer' | 'inRoom' | 'adjacentRoom | 'onObject'} PerceptionContext */
@@ -232,7 +232,7 @@ class GameObject {
 
 	/**
 	 * @param {string} id Convention: all lowercase, no spaces.
-	 * @param {GameObjectSettings} settings
+	 * @param {GameObjectOptions} options
 	 */
 	constructor(id, options) {
 		HookModule.run('before:GameObject.constructor', arguments, this)
@@ -242,7 +242,21 @@ class GameObject {
 		if (typeof(id) !== 'string')
 			throw EXCEPTIONS.brokenEnforcedType('GameObject.id', 'string')
 
+		this.#id = id
+		if (options.tags)
+			for (const tag of options.tags)
+				this.tag(tag)
+		if (options.components)
+			this.addComponents(options.components)
+		if (options.watchProperties) {
+			const proxy = new Proxy(this, EventModule._proxyHandler)
+			GameObject.#all.set(id, proxy)
+			return proxy
+		}
+		GameObject.#all.set(id, this)
+
 		HookModule.run('after:GameObject.constructor', arguments, this)
+		return this
 	}
 
 	static get all() {
