@@ -385,7 +385,10 @@ class GameObject {
 	/** Returns whether or not the object has the given component or not.
 	 * @param {Class} component Either the component subclass itself, or an instance of the wanted component subclass.
 	 */
-	hasComponent(component) {}
+	hasComponent(component) {
+		HookModule.run('GameObject.instance.hasComponent', arguments, this)
+		return !!this.component(component)
+	}
 	/** Adds a tag to the object. Returns `true`, if the tag wasn't present, or `false`, if it already was (no-op).
 	 * @param {string} tag Convention: all caps, past tense.
 	 */
