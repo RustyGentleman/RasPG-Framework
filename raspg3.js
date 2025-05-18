@@ -809,15 +809,22 @@ class Containing extends Component {
 	#contents = new Set()
 
 	get contents() {
-		return new Set(this.#contents)
+		return new Set(
+			Array.from(this.#contents)
+				.map(e => GameObject.resolve(e, { operation: 'Containing.instance.get.contents' }))
+		)
 	}
 
-	/** Adds an object to the container. Returns `true`, if successful, and `false`, if an error occurred..
+	/** Adds an object to the container. Returns `true`, if successful, `null`, if the object isn't found, and `false`, if the object was already present.
 	 * @param {GameObject | string} object
 	 * @param {boolean} passOn INTERNAL USE: if anything but `false`, will call the current (if existent) container's `remove` method and new container's `add` method.
 	 */
 	add(object, passOn) {
 		HookModule.run('before:Container.instance.add', arguments, this)
+
+		if (this.has(actualObject))
+			return false
+
 		const actualObject = GameObject.resolve(object, { component: Tangible, operation: 'Container.add' })
 		if (!actualObject)
 			return actualObject
@@ -833,12 +840,16 @@ class Containing extends Component {
 		HookModule.run('after:Container.instance.add', arguments, this)
 		return true
 	}
-	/** Removes an object from the container. Returns `true`, if object was present, and `false`, if the object wasn't.
+	/** Removes an object from the container. Returns `true`, if object was present, `null`, if the object isn't found, and `false`, if the object wasn't present.
 	 * @param {GameObject | string} object
 	 * @param {boolean} passOn INTERNAL USE: if anything but `false`, will call the current (if existent) container's `remove` method and new container's `add` method.
 	 */
 	remove(object, passOn) {
 		HookModule.run('before:Container.instance.remove', arguments, this)
+
+		if (!this.has(actualObject))
+			return false
+
 		const actualObject = GameObject.resolve(object, { component: Tangible, operation: 'Container.remove' })
 		if (!actualObject)
 			return actualObject
