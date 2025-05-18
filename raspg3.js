@@ -318,27 +318,19 @@ class GameObject {
 	addComponent(component) {
 		HookModule.run('before:GameObject.instance.addComponent', arguments, this)
 		let instance
-		//* Is a string
-		if (typeof(component) === 'string') {
-			actualComponent = Component.resolve(component)
-			if (!actualComponent)
-				return null
-			instance = new actualComponent()
-		}
-		//* Is a Component subclass
-		if (typeof component === 'function' && Component.isPrototypeOf(component))
-			instance = new component()
-		//* Is an instance of a Component subclass
-		else if (typeof component === 'object' && Component.isPrototypeOf(component.constructor))
+		if (typeof component === 'object' && Component.isPrototypeOf(component.constructor))
 			instance = component
-		else
-			throw EXCEPTIONS.notComponent
+		else {
+			instance = new (Component.resolve(component))()
+			if (!instance)
+				throw EXCEPTIONS.notComponent
+		}
 
 		// if (this.tags.has('PROXIED'))
 		// 	instance = new Proxy(instance, EventModule._proxyHandler)
 
-		if (this._components.find(component => component.constructor === instance.constructor))
-			return null
+		if (this.hasComponent(instance.constructor))
+			return false
 		if (instance.constructor.requires.length)
 			for (const requirement of instance.constructor.requires)
 				this.addComponent(requirement)
@@ -436,14 +428,16 @@ class Component {
 		this.serializeFunction = serializeFunction
 	}
 	/** Attempts to resolve a string to a Component subclass. Passes it back if first parameter is already one. Returns `null` if not found.
-	 * @param {string | Component} name
+	 * @param {string | typeof Component | Component} component
 	 */
-	static resolve(name) {
+	static resolve(component) {
 		HookModule.run('Component.resolve', arguments, this)
-		if (typeof(name) === 'string' && this.isPrototypeOf(eval(name)))
-			return eval(name)
-		if (this.isPrototypeOf(name))
-			return name
+		if (typeof(component) === 'string' && this.isPrototypeOf(eval(component)))
+			return eval(component)
+		if (typeof(component) === 'function' && this.isPrototypeOf(component))
+			return component
+		if (typeof(component) === 'object' && this.isPrototypeOf(component.constructor))
+			return component.constructor
 		return null
 	}
 	/** Uses the given `serializeFunction` to compile the component's data in the form of a JSON-compatible object.
