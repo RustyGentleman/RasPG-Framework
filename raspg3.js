@@ -598,7 +598,7 @@ class Perceptible extends Component {
 		EventModule.emit('perceptions.descriptions.set')
 		HookModule.run('after:Perceptible.instance.setDescriptions', arguments, this)
 	}
-	/** Add a perception to the object, for a given sense, in a particular context. Returns `true`, if there was no perception set for the given sense and context for the given sense, and `false`
+	/** Add a description for a given sense, in a particular context (i.e. sight direct, smell inRoom). Returns `true`, if there was a perception set for the given sense and context and it was overwritten, and `false`, if there wasn't.
 	 * @param {string} sense Convention: no spaces, camelCase.
 	 * @param {Perception} perception
 	 * @param {PerceptionContext} context
@@ -614,13 +614,35 @@ class Perceptible extends Component {
 			throw EXCEPTIONS.brokenEnforcedType('Perceptible.instance.addPerception.description', 'string | () => string')
 		if (!this.#perceptions.has(sense))
 			this.#perceptions.set(sense, new Map())
+		let existed = this.#perceptions.get(sense).has(context)
 		this.#perceptions.get(sense).set(context, description)
 		this.parent._strings.set(`sense.${sense}.${context}`, description)
 
 		EventModule.emit(`perceptions.added`, { object: this.parent, sense, context })
 		HookModule.run('after:Perceptible.instance.setPerception', arguments, this)
+		return existed
 	}
-	removePerception(sense, context) {}
+	/** Removes the perception from a given sense and context. Returns `true`, if successful, and `false`, if either the sense or context didn't exist.
+	 * @param {string} sense Convention: no spaces, camelCase.
+	 * @param {PerceptionContext} context
+	 */
+	removePerception(sense, context) {
+		HookModule.run('before:Perceptible.instance.removePerception', arguments, this)
+
+		if (typeof(sense) !== 'string')
+			throw EXCEPTIONS.brokenEnforcedType('Perceptible.instance.addPerception.sense', 'string')
+		if (typeof(context) !== 'string')
+			throw EXCEPTIONS.brokenEnforcedType('Perceptible.instance.addPerception.context', 'string')
+		if (!this.#perceptions.has(sense))
+			return false
+		if (!this.#perceptions.get(sense).has(context))
+			return false
+
+		this.#perceptions.get(sense).delete(context)
+
+		HookModule.run('after:Perceptible.instance.removePerception', arguments, this)
+		return true
+	}
 	/** Returns a particular perception, for a given sense, in a particular context. If `context` is, instead, an array of contexts, it'll look for perceptions in its order, and return the first found. Returns the appropriate string, if found, or 'null', if not found.
 	 * @param {string} sense Convention: no spaces, camelCase.
 	 * @param {PerceptionContext | Array<PerceptionContext>} context Either a perception context string, or an array of them.
