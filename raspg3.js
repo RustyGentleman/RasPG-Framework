@@ -397,7 +397,7 @@ class Component {
 	static setSerializationFunction(fn) {
 		this.serializeFunction = serializeFunction
 	}
-	/** Attempts to resolve a string to a Component subclass. Passes it back if first parameter is already one.
+	/** Attempts to resolve a string to a Component subclass. Passes it back if first parameter is already one. Returns `null` if not found.
 	 * @param {string | Component} name
 	 */
 	static resolve(name) {
@@ -406,6 +406,7 @@ class Component {
 			return eval(name)
 		if (this.isPrototypeOf(name))
 			return name
+		return null
 	}
 	/** Uses the given `serializeFunction` to compile the component's data in the form of a JSON-compatible object.
 	 */
