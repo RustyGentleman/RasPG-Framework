@@ -579,18 +579,18 @@ class Perceptible extends Component {
 		return this.parent._strings.get('sense.descriptionLong')
 	}
 
-	/** Sets a name, short description (for, i.e., item lists), and long description (for, i.e., when looking at an item or listing it in an UI).
-	 * @param {string} name Convention: all lowercase (unless proper name), no article.
-	 * @param {string} short Convention: all lowercase (unless proper name), with article.
-	 * @param {string} long Convention: sentence, first letter uppercase.
+	/** Sets a name, short description (for, i.e., item lists), and long description (for, i.e., when looking at an item or listing it in an UI). Can be functions that return a string.
+	 * @param {string | () => string} name Convention: all lowercase (unless proper name), no article.
+	 * @param {string | () => string} short Convention: all lowercase (unless proper name), with article.
+	 * @param {string | () => string} long Convention: sentence, first letter uppercase.
 	 */
 	setDescriptions(name, short, long) {
 		HookModule.run('before:Perceptible.instance.setDescriptions', arguments, this)
-		if (typeof(name) !== 'string')
+		if (typeof(name) !== 'string' && typeof(name) !== 'function')
 			throw EXCEPTIONS.brokenEnforcedType('Perceptible.instance.setDescriptions.name', 'string | () => string')
-		if (typeof(short) !== 'string')
+		if (typeof(short) !== 'string' && typeof(short) !== 'function')
 			throw EXCEPTIONS.brokenEnforcedType('Perceptible.instance.setDescriptions.short', 'string | () => string')
-		if (typeof(long) !== 'string')
+		if (typeof(long) !== 'string' && typeof(long) !== 'function')
 			throw EXCEPTIONS.brokenEnforcedType('Perceptible.instance.setDescriptions.long', 'string | () => string')
 		this.parent._strings.set('sense.name', name)
 		this.parent._strings.set('sense.descriptionShort', short)
