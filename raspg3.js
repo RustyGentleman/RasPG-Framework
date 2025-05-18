@@ -527,18 +527,30 @@ class Stateful extends Component {
 }
 class Stringful extends Component {
 	static reference = '_strings'
-	strings = new Map()
+	#strings = new Map()
+
+	get strings() {
+		return new Map(this.#strings)
+	}
 
 	/** Gets the string correlated with the given key.
 	 * @param {string} key Convention: dot-separated domains, no spaces, camelCase ('en.action.jumpOn.successful')
 	 */
 	get(key) {
 		HookModule.run('Stringful.instance.get', arguments, this)
-		return this.strings.get(key)
+
+		if (typeof(key) !== 'string')
+			throw EXCEPTIONS.brokenEnforcedType('Stringful.instance.get.key', 'string')
+
+		let string = this.#strings.get(key)
+		if (typeof(string) === 'function')
+			string = string()
+
+		return string
 	}
-	/** Sets the string correlated with the given key.
+	/** Sets the string correlated with the given key. Can be a function that returns a string.
 	 * @param {string} key Convention: no spaces, camelCase.
-	 * @param {boolean | number} string
+	 * @param {string | () => string} string
 	 */
 	set(key, string) {
 		HookModule.run('before:Stringful.instance.set', arguments, this)
@@ -546,8 +558,8 @@ class Stringful extends Component {
 			throw EXCEPTIONS.brokenEnforcedType('Stringful.instance.set.key', 'string')
 		if (typeof(string) !== 'string' && typeof(string) !== 'function')
 			throw EXCEPTIONS.brokenEnforcedType('Stringful.instance.set.string', 'string | () => string')
-		const previous = this.strings.get(key)
-		this.strings.set(key, string)
+		const previous = this.#strings.get(key)
+		this.#strings.set(key, string)
 		EventModule.emitPropertyEvents({
 			object: this.parent,
 			property: key,
