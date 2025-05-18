@@ -312,15 +312,19 @@ class GameObject {
 		HookModule.run('after:GameObject.resolve', arguments, this)
 		return object
 	}
-	/** Adds the given component to the object. Returns `false` if the component was already present (no-op).
+	/** Adds the given component to the object. Returns `true`, if successful, `null`, if the component was not found, and `false`, if the component was already present (no-op).
 	 * @param {Component | string} component Either the component subclass itself, an instance of the wanted component subclass, or its name.
 	 */
 	addComponent(component) {
 		HookModule.run('before:GameObject.instance.addComponent', arguments, this)
 		let instance
 		//* Is a string
-		if (typeof(component) === 'string')
-			instance = Component.resolve(component)
+		if (typeof(component) === 'string') {
+			actualComponent = Component.resolve(component)
+			if (!actualComponent)
+				return null
+			instance = new actualComponent()
+		}
 		//* Is a Component subclass
 		if (typeof component === 'function' && Component.isPrototypeOf(component))
 			instance = new component()
