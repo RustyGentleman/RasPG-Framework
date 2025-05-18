@@ -794,11 +794,11 @@ class Actionable extends Component {
 
 	/** Returns the map of registered actions. */
 	static get actions() {
-		return new Map(this.#actions)
+		return this.#actions.difference(this.#disabledActions)
 	}
 	/** Returns the names of actions allowed on the object. */
 	get actions() {
-		return new Set(this.#actions)
+		return this.#actions.difference(Actionable.#disabledActions)
 	}
 
 	/** Registers an Action object into the component's registryn.
@@ -812,14 +812,47 @@ class Actionable extends Component {
 		this.#actions.set(name, { predicate: actionObject.predicate || undefined, callback: actionObject.callback})
 		HookModule.run('after:Actionable.registerAction', arguments, this)
 	}
-	/** Returns whether the given action name is registered as an action in the component's registry.
+	/** Returns whether the given action name is registered as an action in the component's registry, and not currently disabled.
 	 * @param {string} action Convention: no spaces, camelCase. Can be organized into domains (i.e. 'item.drop')
 	 */
 	static isAction(action) {
 		HookModule.run('Actionable.isAction', arguments, this)
-		return this.#actions.has(action)
+		return this.actions.has(action)
 	}
+	/** Completely disables the given action system-wide. Returns `true`, if successful, and `false`, if an error occurred.
+	 * @param {string} action
+	 */
+	static disable(action) {
+		HookModule.run('before:Actionable.disable', arguments, this)
 
+		if (typeof(action) !== 'string')
+			throw EXCEPTIONS.brokenEnforcedType('Actionable.disable.action', 'string')
+		if (!Actionable.isAction(action))
+			return LOGS.elementNotRegisteredInCollection(action, 'Actionable.#actions')
+
+		this.#disabledActions.add(action)
+
+		HookModule.run('after:Actionable.disable', arguments, this)
+		return true
+	}
+	/** Reenables the given action system-wide. Returns `true`, if successful, and `false`, if an error occurred.
+	 * @param {string} action
+	 */
+	static enable(action) {
+		HookModule.run('before:Actionable.enable', arguments, this)
+
+		if (typeof(action) !== 'string')
+			throw EXCEPTIONS.brokenEnforcedType('Actionable.enable.action', 'string')
+		if (!Actionable.isAction(action))
+			return LOGS.elementNotRegisteredInCollection(action, 'Actionable.#actions')
+		if (!Actionable.#disabledActions.has(action))
+			return LOGS.elementNotRegisteredInCollection(action, 'Actionable.#disabledActions')
+
+		this.#disabledActions.delete(action)
+
+		HookModule.run('after:Actionable.enable', arguments, this)
+		return true
+	}
 	/** Adds the action name (or all in the array) to the object's allowed actions. Returns `true`, if successful, or `false`, if (at least one) error occurs.
 	 * @param {string | Array<string>} action Convention: no spaces, camelCase. Can be organized into domains (i.e. 'item.drop')
 	 */
@@ -875,15 +908,16 @@ class Actionable extends Component {
 class Agentive {
 	static reference = '_acts'
 	static #acts = new Map()
+	static #disabledActs = new Set()
 	#acts = new Set()
 
 	/** Returns the map of registered acts. */
 	static get acts() {
-		return new Map(this.#acts)
+		return this.#acts.difference(this.#disabledActs)
 	}
 	/** Returns the names of acts allowed by the object. */
 	get acts() {
-		return new Set(this.#acts)
+		return this.#acts.difference(Agentive.#disabledActs)
 	}
 
 	/** Registers an Act object into the component's registry.
@@ -897,14 +931,47 @@ class Agentive {
 		this.#acts.set(name, { predicate: actObject.predicate || undefined, callback: actObject.callback})
 		HookModule.run('after:Agentive.registerAct', arguments, this)
 	}
-	/** Returns whether the given act name is registered as an act in the component's registry.
+	/** Returns whether the given act name is registered as an act in the component's registry, and not currently disabled.
 	 * @param {string} act Convention: no spaces, camelCase. Can be organized into domains (i.e. 'item.drop')
 	 */
 	static isAct(act) {
 		HookModule.run('Actionable.isAction', arguments, this)
-		return this.#acts.has(act)
+		return this.acts.has(act)
 	}
+	/** Completely disables the given act system-wide. Returns `true`, if successful, and `false`, if an error occurred.
+	 * @param {string} act
+	 */
+	static disable(act) {
+		HookModule.run('before:Agentive.disable', arguments, this)
 
+		if (typeof(act) !== 'string')
+			throw EXCEPTIONS.brokenEnforcedType('Agentive.disable.act', 'string')
+		if (!Agentive.isAct(act))
+			return LOGS.elementNotRegisteredInCollection(act, 'Agentive.#acts')
+
+		this.#disabledActs.add(act)
+
+		HookModule.run('after:Agentive.disable', arguments, this)
+		return true
+	}
+	/** Reenables the given act system-wide. Returns `true`, if successful, and `false`, if an error occurred.
+	 * @param {string} act
+	 */
+	static enable(act) {
+		HookModule.run('before:Agentive.enable', arguments, this)
+
+		if (typeof(act) !== 'string')
+			throw EXCEPTIONS.brokenEnforcedType('Agentive.enable.act', 'string')
+		if (!Agentive.isAct(act))
+			return LOGS.elementNotRegisteredInCollection(act, 'Agentive.#acts')
+		if (!Agentive.#disabledActs.has(act))
+			return LOGS.elementNotRegisteredInCollection(act, 'Agentive.#disabledActs')
+
+		this.#disabledActs.delete(act)
+
+		HookModule.run('after:Agentive.enable', arguments, this)
+		return true
+	}
 	/** Adds the act name (or all in the array) to the object's allowed acts. Returns `true`, if successful, or `false`, if (at least one) error occurs.
 	 * @param {string | Array<string>} act Convention: no spaces, camelCase. Can be organized into domains (i.e. 'item.drop')
 	 */
