@@ -1,14 +1,14 @@
 // RasPG I-3
-// @typedef {{event: string, callback: EventCallback, owner: GameObject, once: boolean}} EventListener
-// @typedef {(owner: GameObject, data: EventData) => void} EventCallback
-// @typedef {{object: GameObject, property: string, previous: any, current: any}} EventData
-// @typedef {{tags: Array<string>, components: Array<Component>, watchProperties: boolean}} GameObjectSettings
-// @typedef {{proto: Function, component: Component, components: Iterable<Component>, operation: string, silent: boolean}} GameObjectResolveOptions
-// @typedef {{context: PerceptionContext, description: string | PerceptionDescriptionFunction}} Perception
-// @typedef {'direct' | 'inContainer' | 'inRoom' | 'adjacentRoom | 'onObject'} PerceptionContext
-// @typedef {(sensor: GameObject, target: GameObject) => string} PerceptionDescriptionFunction
-// @typedef {{predicate: (agent: GameObject) => boolean, callback: (agent: GameObject) => (void | string)}} Action
-// @typedef {{predicate: (object: GameObject) => boolean, callback: (object: GameObject) => (void | string)}} Act
+/** @typedef {{event: string, callback: EventCallback, owner: GameObject, once: boolean}} EventListener */
+/** @typedef {(owner: GameObject, data: EventData) => void} EventCallback */
+/** @typedef {{object: GameObject, property: string, previous: any, current: any}} EventData */
+/** @typedef {{tags: Array<string>, components: Array<Component>, watchProperties: boolean}} GameObjectSettings */
+/** @typedef {{proto: Function, component: Component, components: Iterable<Component>, operation: string, silent: boolean}} GameObjectResolveOptions */
+/** @typedef {{context: PerceptionContext, description: string | PerceptionDescriptionFunction}} Perception */
+/** @typedef {'direct' | 'inContainer' | 'inRoom' | 'adjacentRoom | 'onObject'} PerceptionContext */
+/** @typedef {(sensor: GameObject, target: GameObject) => string} PerceptionDescriptionFunction */
+/** @typedef {{predicate: (agent: GameObject) => boolean, callback: (agent: GameObject) => (void | string)}} Action */
+/** @typedef {{predicate: (object: GameObject) => boolean, callback: (object: GameObject) => (void | string)}} Act */
 
 //# Prototype mutations
 if (!Set.prototype.find) {
