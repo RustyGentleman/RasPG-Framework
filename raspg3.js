@@ -359,17 +359,9 @@ class GameObject {
 	component(component) {
 		HookModule.run('before:GameObject.instance.component', arguments, this)
 
-		let actualComponent
-		if (typeof(component) === 'string')
-			actualComponent = Component.resolve(component)
-		else if (typeof(component) === 'object')
-			if (Component.isPrototypeOf(component.constructor))
-				actualComponent = component.constructor
-			else
-				throw EXCEPTIONS.notComponent()
-		else if (typeof(component) === 'function')
-			if (!Component.isPrototypeOf(component))
-				throw EXCEPTIONS.notComponent()
+		let actualComponent = Component.resolve(component)
+		if (!actualComponent)
+			throw EXCEPTIONS.notComponent()
 
 		HookModule.run('after:GameObject.instance.component', arguments, this)
 		return this._components.find(e => e instanceof actualComponent) || null
@@ -379,6 +371,11 @@ class GameObject {
 	 */
 	hasComponent(component) {
 		HookModule.run('GameObject.instance.hasComponent', arguments, this)
+
+		let actualComponent = Component.resolve(component)
+		if (!actualComponent)
+			throw EXCEPTIONS.notComponent()
+
 		return !!this.component(component)
 	}
 	/** Adds a tag to the object. Returns `true`, if the tag wasn't present, or `false`, if it already was (no-op).
