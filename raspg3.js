@@ -5,7 +5,7 @@
 /** @typedef {{tags: Array<string>, components: Array<Component>, watchProperties: boolean}} GameObjectOptions */
 /** @typedef {{proto: Function, component: Component, components: Iterable<Component>, operation: string, silent: boolean}} GameObjectResolveOptions */
 /** @typedef {{context: PerceptionContext, description: string | PerceptionDescriptionFunction}} Perception */
-/** @typedef {string | 'direct' | 'inContainer' | 'inRoom' | 'adjacentRoom' | 'onObject'} PerceptionContext */
+/** @typedef {string | 'superficial' | 'direct' | 'inContainer' | 'inRoom' | 'adjacentRoom' | 'onObject'} PerceptionContext */
 /** @typedef {(sensor: GameObject, target: GameObject) => string} PerceptionDescriptionFunction */
 /** @typedef {{predicate: (agent: GameObject) => boolean, callback: (agent: GameObject) => (void | string)}} Action */
 /** @typedef {{predicate: (object: GameObject) => boolean, callback: (object: GameObject) => (void | string)}} Act */
@@ -36,7 +36,7 @@ const EXCEPTIONS = {
 		new TypeError('Expected instance of GameObject or subclass'),
 	notComponent: () =>
 		new TypeError('Expected instance of Component or subclass, or their prototypes'),
-	idConflict: (objectID) =>
+	objectIDConflict: (objectID) =>
 		new Error('Conflicting GameObject IDs: ', objectID),
 	generalIDConflict: (domain, objectID) =>
 		new Error(`Conflicting IDs on ${domain}: `, objectID),
@@ -81,9 +81,11 @@ class EventModule {
 	 */
 	static on(event, callback, options) {
 		HookModule.run('before:EventModule.on', arguments, this)
+
 		if (!this.#listeners.has(event))
 			this.#listeners.set(event, new Set())
 		this.#listeners.get(event).add({ event, callback, owner: options.owner || undefined, once: options.once || false })
+
 		HookModule.run('after:EventModule.on', arguments, this)
 	}
 	/** Removes a specific listener, optionally from a specific owner. Returns the number of listeners removed.
@@ -93,8 +95,10 @@ class EventModule {
 	 */
 	static off(event, callback, options) {
 		HookModule.run('before:EventModule.off', arguments, this)
+
 		if (!this.#listeners.has(event))
 			return false
+
 		const listeners = this.#listeners.get(event)
 		let found = 0
 		for (const listener of listeners)
@@ -106,6 +110,7 @@ class EventModule {
 					listeners.delete(listener)
 					found++
 			}
+
 		HookModule.run('after:EventModule.off', arguments, this)
 		return found
 	}
@@ -115,6 +120,7 @@ class EventModule {
 	 */
 	static emit(event, data) {
 		HookModule.run('before:EventModule.emit', arguments, this)
+
 		if (this.debug)
 			console.log(`[Event - ${event} on `, data.object)
 		if (!this.#listeners.has(event)) return
@@ -124,6 +130,7 @@ class EventModule {
 			if (listener.once)
 				listeners.delete(listener)
 		}
+
 		HookModule.run('after:EventModule.emit', arguments, this)
 	}
 	/** Removes all listeners owned by a specific GameObject.
@@ -131,10 +138,12 @@ class EventModule {
 	 */
 	static removeAllBy(owner) {
 		HookModule.run('before:EventModule.removeAllBy', arguments, this)
+
 		for (const listeners of this.#listeners.values())
 			for (const listener of listeners)
 				if (listener.owner === owner)
 					listeners.delete(listener)
+
 		HookModule.run('after:EventModule.removeAllBy', arguments, this)
 	}
 	/** Emits a set of property value change events.
@@ -142,6 +151,7 @@ class EventModule {
 	 */
 	static emitPropertyEvents(data, prefix) {
 		HookModule.run('before:EventModule.emitPropertyEvents', arguments, this)
+
 		//* Property set
 		EventModule.emit(`${prefix}${data.property}.set`, {
 			object: data.object,
@@ -194,6 +204,7 @@ class EventModule {
 					property: data.property,
 					previous: data.previous,
 					current: data.current })
+
 		HookModule.run('after:EventModule.emitPropertyEvents', arguments, this)
 	}
 }
@@ -217,11 +228,10 @@ class HookModule {
 	 */
 	static run(hook, args, object) {
 		if (this.debug)
-			console.log(`[Hook - ${hook} on `, object)
+			console.log(`[Hook - ${hook} on `, object, ']')
 		if (!this.#hooks.has(hook)) return
-		for (const callback of this.#hooks.get(hook)) {
+		for (const callback of this.#hooks.get(hook))
 			callback(args, object)
-		}
 	}
 }
 
@@ -240,7 +250,7 @@ class GameObject {
 		HookModule.run('before:GameObject.constructor', arguments, this)
 
 		if (GameObject.#all.has(id))
-			throw EXCEPTIONS.idConflict(id)
+			throw EXCEPTIONS.objectIDConflict(id)
 		if (typeof(id) !== 'string')
 			throw EXCEPTIONS.brokenEnforcedType('GameObject.id', 'string')
 
@@ -322,6 +332,7 @@ class GameObject {
 	 */
 	addComponent(component) {
 		HookModule.run('before:GameObject.instance.addComponent', arguments, this)
+
 		let instance
 		if (typeof component === 'object' && Component.isPrototypeOf(component.constructor))
 			instance = component
@@ -344,6 +355,7 @@ class GameObject {
 
 		if (instance.constructor.reference)
 			this[instance.constructor.reference] = instance
+
 		HookModule.run('after:GameObject.instance.addComponent', arguments, this)
 	}
 	/** Adds the given components to the object. Returns `false` if all components were already present (no-op).
@@ -351,10 +363,12 @@ class GameObject {
 	 */
 	addComponents() {
 		HookModule.run('before:GameObject.instance.addComponents', arguments, this)
+
 		let ret = false
 		for (const component of arguments)
 			if (this.addComponent(component))
 				ret = true
+
 		HookModule.run('after:GameObject.instance.addComponents', arguments, this)
 		return ret
 	}
@@ -388,6 +402,7 @@ class GameObject {
 	 */
 	tag(tag) {
 		HookModule.run('before:GameObject.instance.tag', arguments, this)
+
 		if (typeof(tag) !== 'string')
 			throw EXCEPTIONS.brokenEnforcedType('GameObject.instance.tag.tag', 'string')
 		if (this.#tags.has(tag))
@@ -403,12 +418,14 @@ class GameObject {
 	 */
 	untag(tag) {
 		HookModule.run('before:GameObject.instance.untag', arguments, this)
+
 		if (typeof(tag) !== 'string')
 			throw EXCEPTIONS.brokenEnforcedType('GameObject.instance.untag.tag', 'string')
 		if (!this.#tags.has(tag))
 			return false
 
 		this.#tags.delete(tag)
+
 		HookModule.run('after:GameObject.instance.untag', arguments, this)
 		return true
 	}
@@ -418,32 +435,44 @@ class GameObject {
 	isTagged(tag) {
 		HookModule.run('GameObject.instance.isTagged', arguments, this)
 
+		if (typeof(tag) !== 'string')
+			throw EXCEPTIONS.brokenEnforcedType('GameObject.instance.isTagged.tag', 'string')
+
 		return (this.#tags.has(tag))
 	}
 	/** Serializes the object and all its components in the form of a JSON-compatible object.
 	 */
-	serialize() {}
+	serialize() {
+		const data = {
+			id: this.#id,
+			tags: Array.from(this.#tags),
+			components: Array.from(this._components).map(e => e.serialize())
+		}
+		return data
+	}
 }
 class Component {
 	static reference
 	static requires = []
-	static serializeFunction
+	static #serialization
 	parent
 
 	static setSerializationFunction(fn) {
-		this.serializeFunction = serializeFunction
+		this.#serialization = fn
 	}
 	/** Attempts to resolve a string to a Component subclass. Passes it back if first parameter is already one. Returns `null` if not found.
 	 * @param {string | typeof Component | Component} component
 	 */
 	static resolve(component) {
 		HookModule.run('Component.resolve', arguments, this)
+
 		if (typeof(component) === 'string' && this.isPrototypeOf(eval(component)))
 			return eval(component)
 		if (typeof(component) === 'function' && this.isPrototypeOf(component))
 			return component
 		if (typeof(component) === 'object' && this.isPrototypeOf(component.constructor))
 			return component.constructor
+
 		return null
 	}
 	/** Uses the given `serializeFunction` to compile the component's data in the form of a JSON-compatible object.
@@ -479,6 +508,7 @@ class Stateful extends Component {
 	 */
 	set(variable, value) {
 		HookModule.run('before:Stateful.instance.set', arguments, this)
+
 		if (typeof(variable) !== 'string')
 			throw EXCEPTIONS.brokenEnforcedType('Stateful.instance.set.variable', 'string')
 		switch (typeof(value)) {
@@ -490,11 +520,11 @@ class Stateful extends Component {
 				throw EXCEPTIONS.brokenEnforcedType('Stateful.instance.set.value', 'number | boolean | undefined')
 		}
 		if (!this.#data.hasOwnProperty(variable))
-			LOGS.elementNotRegisteredInCollection(variable, 'Stateful.instance.data')
-			return false
+			return LOGS.elementNotRegisteredInCollection(variable, 'Stateful.instance.data')
+
 		const previous = this.#data[variable]
 		this.#data[variable] = value
-		this.data[variable] = value
+
 		EventModule.emitPropertyEvents({
 			object: this.parent,
 			property: variable,
@@ -515,6 +545,7 @@ class Stateful extends Component {
 	 */
 	create(variable, initialValue) {
 		HookModule.run('before:Stateful.instance.create', arguments, this)
+
 		if (typeof(variable) !== 'string')
 			throw EXCEPTIONS.brokenEnforcedType('Stateful.instance.create.variable', 'string')
 		switch (typeof(initialValue)) {
@@ -527,7 +558,9 @@ class Stateful extends Component {
 		}
 		if (this.#data[variable] === undefined)
 			return false
+
 		this.#data[variable] = initialValue
+
 		EventModule.emit(`states.created`, {
 			object: this.parent,
 			variable,
@@ -566,12 +599,15 @@ class Stringful extends Component {
 	 */
 	set(key, string) {
 		HookModule.run('before:Stringful.instance.set', arguments, this)
+
 		if (typeof(key) !== 'string')
 			throw EXCEPTIONS.brokenEnforcedType('Stringful.instance.set.key', 'string')
 		if (typeof(string) !== 'string' && typeof(string) !== 'function')
 			throw EXCEPTIONS.brokenEnforcedType('Stringful.instance.set.string', 'string | () => string')
+
 		const previous = this.#strings.get(key)
 		this.#strings.set(key, string)
+
 		EventModule.emitPropertyEvents({
 			object: this.parent,
 			property: key,
@@ -610,15 +646,18 @@ class Perceptible extends Component {
 	 */
 	setDescriptions(name, short, long) {
 		HookModule.run('before:Perceptible.instance.setDescriptions', arguments, this)
+
 		if (typeof(name) !== 'string' && typeof(name) !== 'function')
 			throw EXCEPTIONS.brokenEnforcedType('Perceptible.instance.setDescriptions.name', 'string | () => string')
 		if (typeof(short) !== 'string' && typeof(short) !== 'function')
 			throw EXCEPTIONS.brokenEnforcedType('Perceptible.instance.setDescriptions.short', 'string | () => string')
 		if (typeof(long) !== 'string' && typeof(long) !== 'function')
 			throw EXCEPTIONS.brokenEnforcedType('Perceptible.instance.setDescriptions.long', 'string | () => string')
+
 		this.parent._strings.set('sense.name', name)
 		this.parent._strings.set('sense.descriptionShort', short)
 		this.parent._strings.set('sense.descriptionLong', long)
+
 		EventModule.emit('perceptions.descriptions.set')
 		HookModule.run('after:Perceptible.instance.setDescriptions', arguments, this)
 	}
@@ -630,12 +669,14 @@ class Perceptible extends Component {
 	 */
 	addPerception(sense, context, description) {
 		HookModule.run('before:Perceptible.instance.setPerception', arguments, this)
+
 		if (typeof(sense) !== 'string')
 			throw EXCEPTIONS.brokenEnforcedType('Perceptible.instance.addPerception.sense', 'string')
 		if (typeof(context) !== 'string')
 			throw EXCEPTIONS.brokenEnforcedType('Perceptible.instance.addPerception.context', 'string')
 		if (typeof(description) !== 'string' && typeof(description) !== 'function')
 			throw EXCEPTIONS.brokenEnforcedType('Perceptible.instance.addPerception.description', 'string | () => string')
+
 		if (!this.#perceptions.has(sense))
 			this.#perceptions.set(sense, new Map())
 		let existed = this.#perceptions.get(sense).has(context)
@@ -674,6 +715,7 @@ class Perceptible extends Component {
 	 */
 	perceive(sense, context, sensor) {
 		HookModule.run('before:Perceptible.instance.perceive', arguments, this)
+
 		if (typeof(sense) !== 'string')
 			throw EXCEPTIONS.brokenEnforcedType('Perceptible.instance.perceive.sense', 'string')
 		if (typeof(context) !== 'string')
@@ -682,6 +724,7 @@ class Perceptible extends Component {
 			return null
 		if (!GameObject.isPrototypeOf(sensor))
 			throw EXCEPTIONS.notGameObject()
+
 		const perceptions = this.#perceptions.get(sense)
 		let found
 		let realContext = context
@@ -694,7 +737,6 @@ class Perceptible extends Component {
 					realContext = context
 					break
 				}
-
 		if (!found)
 			return null
 		if (typeof(found) === 'function')
@@ -725,7 +767,7 @@ class Tangible extends Component {
 	moveTo(location, passOn) {
 		HookModule.run('before:Tangible.instance.moveTo', arguments, this)
 
-		location = GameObject.resolve(location, { component: Container, operation: 'Tangible.moveTo' })
+		location = GameObject.resolve(location, { component: Container, operation: 'Tangible.instance.moveTo' })
 		if (!location)
 			return location
 
@@ -783,9 +825,11 @@ class Tangible extends Component {
 	 */
 	samePlaceAs(object) {
 		HookModule.run('Tangible.instance.samePlaceAs', arguments, this)
-		let actualObject = GameObject.resolve(object, { component: Tangible, operation: 'Tangible.samePlaceAs' })
+
+		let actualObject = GameObject.resolve(object, { component: Tangible, operation: 'Tangible.instance.samePlaceAs' })
 		if (!actualObject)
 			return null
+
 		return actualObject._tangible.location === this.location
 	}
 }
@@ -827,10 +871,9 @@ class Containing extends Component {
 		if (this.has(actualObject))
 			return false
 
-		const actualObject = GameObject.resolve(object, { component: Tangible, operation: 'Container.add' })
+		const actualObject = GameObject.resolve(object, { component: Tangible, operation: 'Container.instance.add' })
 		if (!actualObject)
 			return actualObject
-
 		if (passOn !== false)
 			actualObject._tangible.moveTo(this.parent, false)
 		this.#contents.add(actualObject.id)
@@ -852,10 +895,9 @@ class Containing extends Component {
 		if (!this.has(actualObject))
 			return false
 
-		const actualObject = GameObject.resolve(object, { component: Tangible, operation: 'Container.remove' })
+		const actualObject = GameObject.resolve(object, { component: Tangible, operation: 'Container.instance.remove' })
 		if (!actualObject)
 			return actualObject
-
 		if (passOn !== false)
 			actualObject._tangible.removeFromWorld(false)
 		this.#contents.delete(actualObject.id)
@@ -874,7 +916,8 @@ class Containing extends Component {
 	 */
 	has(object) {
 		HookModule.run('Container.instance.has', arguments, this)
-		const actualObject = GameObject.resolve(object, { component: Tangible, operation: 'Container.remove' })
+
+		const actualObject = GameObject.resolve(object, { component: Tangible, operation: 'Container.instance.has' })
 		if (!actualObject)
 			return actualObject
 
@@ -888,24 +931,23 @@ class Actionable extends Component {
 	static #disabledActions = new Set()
 	#actions = new Set()
 
-	/** Returns the map of registered actions. */
 	static get actions() {
 		return new Map(
 			Array.from(this.#actions)
 				.filter(([key, _]) => !this.#disabledActions.has(key))
 		)
 	}
-	/** Returns the names of actions allowed on the object. */
 	get actions() {
 		return this.#actions.difference(Actionable.#disabledActions)
 	}
 
-	/** Registers an Action object into the component's registryn.
+	/** Registers an Action object into the component's registry.
 	 * @param {string} name Convention: no spaces, camelCase. Can be organized into domains (i.e. 'item.drop').
 	 * @param {Action} actionObject
 	 */
 	static registerAction(name, actionObject) {
 		HookModule.run('before:Actionable.registerAction', arguments, this)
+
 		if (typeof(name) !== 'string')
 			throw EXCEPTIONS.brokenEnforcedType('Actionable.registerAction.name', 'string')
 		if (this.isAction(name))
@@ -915,6 +957,7 @@ class Actionable extends Component {
 			predicate: actionObject.predicate || undefined,
 			callback: actionObject.callback
 		})
+
 		HookModule.run('after:Actionable.registerAction', arguments, this)
 	}
 	/** Returns whether the given action name is registered as an action in the component's registry, and not currently disabled.
@@ -966,12 +1009,15 @@ class Actionable extends Component {
 	 */
 	agentsCan(action) {
 		HookModule.run('before:Actionable.instance.agentsCan', arguments, this)
+
 		if (typeof(action) !== 'string')
 			throw EXCEPTIONS.brokenEnforcedType('Actionable.instance.agentsCan.action', 'string')
+
 		if (typeof(action) === 'string') {
 			if (!Actionable.isAction(action))
 				return LOGS.elementNotRegisteredInCollection(action, 'Actionable.#actions')
 			this.#actions.add(action)
+			return true
 		}
 		let ret = true
 		if (action instanceof Array)
@@ -980,6 +1026,7 @@ class Actionable extends Component {
 					ret = LOGS.elementNotRegisteredInCollection(name, 'Actionable.#actions')
 				else this.#actions.add(name)
 			}
+
 		EventModule.emit('actions.added', { object: this.parent, action: name })
 		HookModule.run('after:Actionable.instance.agentsCan', arguments, this)
 		return ret
@@ -989,6 +1036,7 @@ class Actionable extends Component {
 	 */
 	agentsCannot(action) {
 		HookModule.run('before:Actionable.instance.agentsCannot', arguments, this)
+
 		if (typeof(action) !== 'string')
 			throw EXCEPTIONS.brokenEnforcedType('Actionable.instance.agentsCannot.action', 'string')
 		if (typeof(action) === 'string') {
@@ -1004,6 +1052,7 @@ class Actionable extends Component {
 					ret = LOGS.elementNotRegisteredInCollection(name, 'Agentive.instance.#acts')
 				else this.#actions.delete(name)
 			}
+
 		EventModule.emit('actions.removed', { object: this.parent, action: name })
 		HookModule.run('after:Actionable.instance.agentsCannot', arguments, this)
 		return ret
@@ -1015,14 +1064,12 @@ class Agentive {
 	static #disabledActs = new Set()
 	#acts = new Set()
 
-	/** Returns the map of registered acts. */
 	static get acts() {
 		return new Map(
 			Array.from(this.#acts)
 				.filter(([key, _]) => !this.#disabledActs.has(key))
 		)
 	}
-	/** Returns the names of acts allowed by the object. */
 	get acts() {
 		return this.#acts.difference(Agentive.#disabledActs)
 	}
@@ -1033,10 +1080,17 @@ class Agentive {
 	 */
 	static registerAct(name, actObject) {
 		HookModule.run('before:Agentive.registerAct', arguments, this)
+
 		if (typeof(act) !== 'string')
 			throw EXCEPTIONS.brokenEnforcedType('Agentive.registerAct.act', 'string')
 		if (this.isAct(name))
 			throw EXCEPTIONS.generalIDConflict('Agentive.#acts', name)
+
+		this.#acts.set(name, {
+			predicate: actObject.predicate || undefined,
+			callback: actObject.callback
+		})
+
 		HookModule.run('after:Agentive.registerAct', arguments, this)
 	}
 	/** Returns whether the given act name is registered as an act in the component's registry, and not currently disabled.
@@ -1088,12 +1142,14 @@ class Agentive {
 	 */
 	can(act) {
 		HookModule.run('before:Agentive.instance.can', arguments, this)
+
 		if (typeof(act) !== 'string')
 			throw EXCEPTIONS.brokenEnforcedType('Agentive.instance.can.act', 'string')
 		if (typeof(act) === 'string') {
 			if (!Agentive.isAction(act))
 				return LOGS.elementNotRegisteredInCollection(act, 'Agentive.instance.#acts')
 			this.#acts.add(act)
+			return true
 		}
 		let ret = true
 		if (act instanceof Array)
@@ -1102,6 +1158,7 @@ class Agentive {
 					ret = LOGS.elementNotRegisteredInCollection(name, 'Agentive.instance.#acts')
 				else this.#acts.add(name)
 			}
+
 		EventModule.emit('acts.added', { object: this.parent, act: name })
 		HookModule.run('after:Agentive.instance.can', arguments, this)
 		return ret
@@ -1111,12 +1168,14 @@ class Agentive {
 	 */
 	cannot(act) {
 		HookModule.run('before:Agentive.instance.cannot', arguments, this)
+
 		if (typeof(act) === 'string') {
 			if (!Agentive.isAct(act))
 				return LOGS.elementNotRegisteredInCollection(act, 'Agentive.instance.#acts')
 			this.#acts.delete(act)
 			return true
 		}
+
 		let ret = true
 		if (act instanceof Array)
 			for (const name of act) {
@@ -1124,12 +1183,12 @@ class Agentive {
 					ret = LOGS.elementNotRegisteredInCollection(name, 'Agentive.instance.#acts')
 				else this.#acts.delete(name)
 			}
+
 		EventModule.emit('acts.removed', { object: this.parent, act: name })
 		HookModule.run('after:Agentive.instance.cannot', arguments, this)
 		return ret
 	}
 }
-
 
 let test = new GameObject()
 test.addComponent(Perceptible)
