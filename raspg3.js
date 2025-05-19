@@ -295,7 +295,7 @@ class GameObject {
 	 * @param {GameObjectResolveOptions} options If both `components` and `component` are passed in `options`, only the array is checked. `operation` is the name of the method calling this method, and wwill be passed to warning messages for information. If `silent` is set to `true`, no warnings will be issued.
 	 */
 	static resolve(id, options) {
-		HookModule.run('before:GameObject.resolve', arguments, this)
+		HookModule.run('GameObject.resolve', arguments, this)
 		let object
 
 		if (typeof(id) === 'object' && !this.isPrototypeOf(id))
@@ -324,7 +324,6 @@ class GameObject {
 				return LOGS.missingRequiredComponentForOperation(id, options.component.name, options.operation || 'resolve')
 			else return false
 
-		HookModule.run('after:GameObject.resolve', arguments, this)
 		return object
 	}
 	/** Adds the given component to the object. Returns `true`, if successful, `null`, if the component was not found, and `false`, if the component was already present (no-op).
