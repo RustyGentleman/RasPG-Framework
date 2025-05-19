@@ -38,6 +38,8 @@ const EXCEPTIONS = {
 		new TypeError('Expected instance of Component or subclass, or their prototypes'),
 	idConflict: (objectID) =>
 		new Error('Conflicting GameObject IDs: ', objectID),
+	generalIDConflict: (domain, objectID) =>
+		new Error(`Conflicting IDs on ${domain}: `, objectID),
 	brokenEnforcedType: (param, type) =>
 		new Error(`Enforced parameter/property type broken: ${param} : ${type}`),
 }
@@ -888,7 +890,10 @@ class Actionable extends Component {
 
 	/** Returns the map of registered actions. */
 	static get actions() {
-		return this.#actions.difference(this.#disabledActions)
+		return new Map(
+			Array.from(this.#actions)
+				.filter(([key, _]) => !this.#disabledActions.has(key))
+		)
 	}
 	/** Returns the names of actions allowed on the object. */
 	get actions() {
@@ -903,14 +908,23 @@ class Actionable extends Component {
 		HookModule.run('before:Actionable.registerAction', arguments, this)
 		if (typeof(name) !== 'string')
 			throw EXCEPTIONS.brokenEnforcedType('Actionable.registerAction.name', 'string')
-		this.#actions.set(name, { predicate: actionObject.predicate || undefined, callback: actionObject.callback})
+		if (this.isAction(name))
+			throw EXCEPTIONS.generalIDConflict('Actionable.#actions', name)
+
+		this.#actions.set(name, {
+			predicate: actionObject.predicate || undefined,
+			callback: actionObject.callback
+		})
 		HookModule.run('after:Actionable.registerAction', arguments, this)
 	}
 	/** Returns whether the given action name is registered as an action in the component's registry, and not currently disabled.
 	 * @param {string} action Convention: no spaces, camelCase. Can be organized into domains (i.e. 'item.drop').
+	 * @param {{enabledOnly: boolean}} options Only `enabledOnly`: `true` by default; if `false`, will check regardless of disabled actions.
 	 */
-	static isAction(action) {
+	static isAction(action, options) {
 		HookModule.run('Actionable.isAction', arguments, this)
+		if (options.enabledOnly === false)
+			return this.#actions.has(action)
 		return this.actions.has(action)
 	}
 	/** Completely disables the given action system-wide. Returns `true`, if successful, and `false`, if an error occurred.
@@ -929,7 +943,7 @@ class Actionable extends Component {
 		HookModule.run('after:Actionable.disable', arguments, this)
 		return true
 	}
-	/** Reenables the given action system-wide. Returns `true`, if successful, and `false`, if an error occurred.
+	/** Enables the given action system-wide. Returns `true`, if successful, and `false`, if an error occurred.
 	 * @param {string} action
 	 */
 	static enable(action) {
