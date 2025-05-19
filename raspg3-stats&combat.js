@@ -7,19 +7,29 @@ class StatType {
 	static #all = new Map()
 	static precision = 6
 	name
-	calculation
+	calculation = (stat) => {
+		let net = stat.base
+		for (const modifier of stat.modifiers) {
+			if ('delta' in modifier)
+				net += modifier.delta
+			if ('multiplier' in modifier)
+				net*= modifier.multiplier
+		}
+		return net
+	}
 	roundToNearest = .01
-	global = []
+	globalModifiers = []
 
 	/**
-	 * @param {String} name
+	 * @param {String} name Convention: no spaces, camelCase.
 	 * @param {StatTypeOptions} options
 	 */
 	constructor(name, options) {
 		HookModule.run('before:StatType.constructor', arguments, this)
 
 		this.name = name
-		this.calculation = options.calculation || ((stat) => stat.base)
+		if (options.calculation)
+			this.calculation = options.calculation
 		this.roundToNearest = options.roundToNearest || false
 
 		StatType.#all.set(name, this)
@@ -32,14 +42,14 @@ class StatType {
 	}
 
 	/** Returns the stat type with the given name, if found, or `null`, if not found.
-	 * @param {string} type Convention: no spaces, camelCase. Can be organized into domains (i.e. 'item.drop').
+	 * @param {string} type Convention: no spaces, camelCase.
 	 */
 	static find(type) {
 		HookModule.run('StatType.find', arguments, this)
 		return this.#all.get(type) || null
 	}
 	/** Attempts to resolve a string to a StatType instance. Passes it back if first parameter is already one. Returns `null` if not found.
-	 * @param {string | StatType} type
+	 * @param {string | StatType} type Convention: no spaces, camelCase.
 	 */
 	static resolve(type) {
 		HookModule.run('StatType.resolve', arguments, this)
