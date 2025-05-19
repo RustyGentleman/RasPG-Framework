@@ -106,7 +106,7 @@ class RasPG {
 
 		this.runtime.modules.set(name, module)
 	}
-	/** Registers a class to the core framework.
+	/** Registers a class to the core framework. Usually for helper classes, helpful for safe string-to-class resolution.
 	 * @param {string} name
 	 * @param {Function} class
 	 */
@@ -304,7 +304,7 @@ class EventModule {
 
 		HookModule.run('after:EventModule.emitPropertyEvents', arguments, this)
 	}
-}
+} RasPG.registerModule('EventModule', EventModule)
 //! !!!WARNING!!! - Hooks that depend on being able to mutate a function's passed `arguments` object will not work under 'use strict', or in functions with rest arguments (`...args`) or default values (`function(param=1)`).
 class HookModule {
 	static #hooks = new Map()
@@ -330,7 +330,7 @@ class HookModule {
 		for (const callback of this.#hooks.get(hook))
 			callback(args, object)
 	}
-}
+} RasPG.registerModule('HookModule', HookModule)
 
 //# Classes
 class GameObject {
@@ -665,7 +665,7 @@ class Stateful extends Component {
 		HookModule.run('after:Stateful.instance.create', arguments, this)
 		return true
 	}
-}
+}  RasPG.registerComponent('Stateful', Stateful)
 class Stringful extends Component {
 	static reference = '_strings'
 	#strings = new Map()
@@ -719,7 +719,7 @@ class Stringful extends Component {
 		HookModule.run('after:Stringful.instance.set', arguments, this)
 		return true
 	}
-}
+}  RasPG.registerComponent('Stringful', Stringful)
 class Perceptible extends Component {
 	static reference = '_perceptions'
 	static requires = [Stringful]
@@ -847,7 +847,7 @@ class Perceptible extends Component {
 		HookModule.run('after:Perceptible.instance.perceive', arguments, this)
 		return found
 	}
-}
+}  RasPG.registerComponent('Perceptible', Perceptible)
 class Tangible extends Component {
 	static reference = '_location'
 	#location
@@ -928,7 +928,7 @@ class Tangible extends Component {
 
 		return actualObject._tangible.location === this.location
 	}
-}
+}  RasPG.registerComponent('Tangible', Tangible)
 class Countable extends Component {
 	static reference = '_count'
 	static requires = [Tangible]
@@ -944,7 +944,7 @@ class Countable extends Component {
 	 * @param {number} amount
 	 */
 	subtract(amount) {}
-}
+}  RasPG.registerComponent('Countable', Countable)
 class Containing extends Component {
 	static reference = '_container'
 	static requires = [Tangible]
@@ -1019,7 +1019,7 @@ class Containing extends Component {
 
 		return this.#contents.has(actualObject.id)
 	}
-}
+}  RasPG.registerComponent('Containing', Containing)
 class Actionable extends Component {
 	static reference = '_actions'
 	static requires = [Tangible]
@@ -1153,7 +1153,7 @@ class Actionable extends Component {
 		HookModule.run('after:Actionable.instance.agentsCannot', arguments, this)
 		return ret
 	}
-}
+}  RasPG.registerComponent('Actionable', Actionable)
 class Agentive {
 	static reference = '_acts'
 	static #acts = new Map()
@@ -1284,7 +1284,7 @@ class Agentive {
 		HookModule.run('after:Agentive.instance.cannot', arguments, this)
 		return ret
 	}
-}
+}  RasPG.registerComponent('Agentive', Agentive)
 
 let test = new GameObject()
 test.addComponent(Perceptible)

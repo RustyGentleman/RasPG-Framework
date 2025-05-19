@@ -99,7 +99,7 @@ class StatType {
 		HookModule.run('StatType.instance.create', arguments, this)
 		return new Stat(this, initialValue)
 	}
-}
+} RasPG.registerClass('StatType', StatType)
 class Stat {
 	#type
 	base
@@ -239,9 +239,9 @@ class Statful extends Component {
 		HookModule.run('after:Statful.instance.give', arguments, this)
 		return true
 	}
-}
+} RasPG.registerComponent('Statful', Statful)
 class Combatant extends Component {
 	static reference = '_combat'
 	static requires = [Actionable, Agentive, Statful]
 	//? Note: Expected to be bundled with the Combat module.
-}
+} RasPG.registerComponent('Combatant', Combatant)
