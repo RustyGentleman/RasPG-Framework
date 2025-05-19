@@ -5,7 +5,6 @@
 //# Classes
 class StatType {
 	static #all = new Map()
-	static #sets = new Map()
 	static precision = 6
 	name
 	calculation
@@ -28,9 +27,6 @@ class StatType {
 		HookModule.run('after:StatType.constructor', arguments, this)
 	}
 
-	static get sets() {
-		return new Set(this.#sets)
-	}
 	static get all() {
 		return new Set(this.#all)
 	}
@@ -50,40 +46,19 @@ class StatType {
 
 		if (StatType.isPrototypeOf(type))
 			return type
-		if (typeof(type) === 'string')
-			return this.find(type)
+		if (typeof(type) === 'string') {
+			const type = this.find(type)
+			if (!type) {
+				LOGS.elementNotRegisteredInCollection(type, 'StatType.#all')
+				return null
+			}
+			return type
+		}
 
-		HookModule.run('after:StatType.resolve', arguments, this)
-	}
-	/** Creates and registers a set of stat types. Returns `true`, if successful, and `false`, if an error occurs.
-	 * @param {string} name
-	 * @param {Array<StatType> | Array<string>} stats
-	 */
-	static createSet(name, stats) {
-		HookModule.run('before:StatType.createSet', arguments, this)
-
-		const set = new Set()
-		for (const stat of stats)
-			set.add(StatType.resolve(stat).name)
-		this.#sets.set(name, set)
-
-		HookModule.run('after:StatType.createSet', arguments, this)
-		return true
-	}
-	/** Applies a set of StatTypes to the object. Returns `true`, if successful, and `false`, if an error occurs.
-	 * @param {string} set
-	 * @param {GameObject} object
-	 */
-	static applySetTo(set, object) {
-		HookModule.run('before:StatType.applySetTo', arguments, this)
-
-		if (!this.#sets.has(set))
-			return LOGS.elementNotRegisteredInCollection(set, 'StatType.#sets')
-
-		HookModule.run('after:StatType.applySetTo', arguments, this)
+		throw EXCEPTIONS.brokenEnforcedType('StatType.resolve.type', 'string | StatType')
 	}
 
-	/** Calculates a given stat's final value.
+	/** Calculates a given stat's final value. In order: runs the given calculation, applies `toPrecision()`, then rounds to nearest, if set.
 	 * @param {Stat} stat
 	 */
 	calculate(stat) {
