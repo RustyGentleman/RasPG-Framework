@@ -38,13 +38,13 @@ class StatType {
 		HookModule.run('StatType.find', arguments, this)
 		return this.#all.get(type) || null
 	}
-	/** Attempts to resolve a string to a StatType instance. Passes it back if first parameter is already one.
+	/** Attempts to resolve a string to a StatType instance. Passes it back if first parameter is already one. Returns `null` if not found.
 	 * @param {string | StatType} type
 	 */
 	static resolve(type) {
-		HookModule.run('before:StatType.resolve', arguments, this)
+		HookModule.run('StatType.resolve', arguments, this)
 
-		if (StatType.isPrototypeOf(type))
+		if (type instanceof StatType)
 			return type
 		if (typeof(type) === 'string') {
 			const type = this.find(type)
