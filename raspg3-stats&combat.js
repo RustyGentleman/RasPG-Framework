@@ -91,10 +91,13 @@ class Stat {
 	constructor(type, initialValue) {
 		HookModule.run('before:Stat.constructor', arguments, this)
 
-		if (typeof(type) === 'string')
-			this.#type = type
-		else if (type instanceof StatType)
-			this.#type = type.name
+		if (typeof(initialValue) !== 'number')
+			throw EXCEPTIONS.brokenEnforcedType('Stat.constructor.initialValue', 'number')
+		const actualType = StatType.resolve(type)
+		if (!actualType)
+			throw EXCEPTIONS.brokenEnforcedType('Stat.constructor.type', 'StatType | string')
+
+		this.#type = actualType.name
 		this.base = initialValue
 
 		HookModule.run('after:Stat.constructor', arguments, this)
