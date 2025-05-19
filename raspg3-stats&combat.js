@@ -117,6 +117,9 @@ class Stat {
 	get type() {
 		return StatType.resolve(this.#type)
 	}
+	get net() {
+		return this.calculate()
+	}
 
 	calculate() {
 		HookModule.run('Stat.instance.calculate', arguments, this)
