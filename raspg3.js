@@ -1,4 +1,4 @@
-// RasPG I-3
+//# Typedefs
 /** @typedef {{event: string, callback: EventCallback, owner: GameObject, once: boolean}} EventListener */
 /** @typedef {(owner: GameObject, data: EventData) => void} EventCallback */
 /** @typedef {{object: GameObject, property: string, previous: any, current: any}} EventData */
@@ -30,36 +30,133 @@ if (!Map.prototype.find) {
 	}
 }
 
-//# Constants
-const EXCEPTIONS = {
-	notGameObject: () =>
-		new TypeError('Expected instance of GameObject or subclass'),
-	notComponent: () =>
-		new TypeError('Expected instance of Component or subclass, or their prototypes'),
-	objectIDConflict: (objectID) =>
-		new Error('Conflicting GameObject IDs: ', objectID),
-	generalIDConflict: (domain, objectID) =>
-		new Error(`Conflicting IDs on ${domain}: `, objectID),
-	brokenEnforcedType: (param, type) =>
-		new Error(`Enforced parameter/property type broken: ${param} : ${type}`),
-}
-const LOGS = {
-	gameObjectNotFound: (objectID) => {
-		console.error(`ID "${objectID}" does not presently correspond to a registered GameObject instance.`)
-		return false
-	},
-	incorrectPrototype: (objectID, className, operation) => {
-		console.warn(`Object (ID "${objectID}") must inherit ${className} for use in operation ${operation} `)
-		return false
-	},
-	missingRequiredComponentForOperation: (objectID, componentName, operation) => {
-		console.warn(`Object (ID "${objectID}") is missing required component (${componentName}) for operation (${operation})`)
-		return false
-	},
-	elementNotRegisteredInCollection: (element, collection) => {
-		console.warn(`Element "${element}" is not registered in collection "${collection}"`)
-		return false
-	},
+//# RasPG core
+class RasPG {
+	static metadata = {
+		shortname: "RasPG Framework",
+		fullname: "Rasutei's Plaintext Game Framework",
+		description: 'A framework for creating interactive fiction and text-based games, focused on being flexible, modular, customizable, and extendable, while attempting to be friendly to writers and developers alike.',
+		author: 'Rasutei',
+		version: '3.0.0-dev',
+		repository: 'https://github.com/RustyGentleman/RasPG-Framework',
+	}
+	static configuration = {
+		parameterTypeEnforcement: true,
+		logWarnings: true,
+		logErrors: true,
+	}
+	static runtime = {
+		state: {},
+		saveModule: undefined,
+		modules: new Map(),
+		classes: new Map(),
+		components: new Map(),
+		extensions: new Map(),
+	}
+	static debug = {
+		exceptions: {
+			notGameObject: () => new TypeError('[RasPG] Expected instance of GameObject or subclass'),
+			notComponent: () => new TypeError('[RasPG] Expected instance of Component or subclass, or their prototypes'),
+			objectIDConflict: (objectID) => new Error('[RasPG] Conflicting GameObject IDs: ', objectID),
+			generalIDConflict: (domainPath, id) => new Error(`[RasPG] Conflicting IDs on ${domainPath}: `, id),
+			brokenTypeEnforcement: (param, type) => new Error(`[RasPG] Enforced parameter/property type broken: ${param} : ${type}`),
+		},
+		logs: {
+			gameObjectNotFound: (objectID) => {
+				if (RasPG.configuration.logErrors)
+					console.error(`[RasPG] ID "${objectID}" does not presently correspond to a registered GameObject instance.`
+						+'\nMaybe typo, or not yet created at this line')
+				return false
+			},
+			incorrectPrototype: (objectID, className, operation) => {
+				if (RasPG.configuration.logWarnings)
+					console.warn(`[RasPG] Object (ID "${objectID}") must be sub-class of ${className} for use in operation ${operation}`
+						+'\nMaybe wrong object reference')
+				return false
+			},
+			missingRequiredComponentForOperation: (objectID, componentName, operation) => {
+				if (RasPG.configuration.logWarnings)
+					console.warn(`[RasPG] Object (ID "${objectID}") is missing required component (${componentName}) for operation (${operation})`
+						+'\nMaybe wrong object, forgot to add or register component, or added wrong component (Actionable vs Agentive)')
+				return false
+			},
+			elementNotRegisteredInCollection: (element, collection) => {
+				if (RasPG.configuration.logWarnings)
+					console.warn(`[RasPG] Element "${element}" is not registered in collection "${collection}"`
+						+'\nMaybe typo, wrong collection, or not yet added at this line')
+				return false
+			},
+		},
+	}
+
+	/** Registers a module to the core framework.
+	 * @param {string} name
+	 * @param {Function} module
+	 */
+	static registerModule(name, module) {
+		if (typeof(name) !== 'string')
+			throw RasPG.debug.exceptions.brokenTypeEnforcement('RasPG.registerModule.name', 'string')
+		if (typeof(module) !== 'function')
+			throw RasPG.debug.exceptions.brokenTypeEnforcement('RasPG.register.module', 'function')
+		if (this.runtime.modules.has(name)) {
+			console.warn(`[RasPG - Core] Attempted to register module "${name}" more than once.`
+				+'\nNo clue here, honestly; unless also attempting to register an extension more than once')
+			return false
+		}
+
+		this.runtime.modules.set(name, module)
+	}
+	/** Registers a class to the core framework.
+	 * @param {string} name
+	 * @param {Function} class
+	 */
+	static registerClass(name, clss) {
+		if (typeof(name) !== 'string')
+			throw RasPG.debug.exceptions.brokenTypeEnforcement('RasPG.registerClass.name', 'string')
+		if (typeof(clss) !== 'function')
+			throw RasPG.debug.exceptions.brokenTypeEnforcement('RasPG.register.clss', 'function')
+		if (this.runtime.classes.has(name)) {
+			console.warn(`[RasPG - Core] Attempted to register class "${name}" more than once.`
+				+'\nNo clue here, honestly; unless also attempting to register an extension more than once')
+			return false
+		}
+
+		this.runtime.classes.set(name, clss)
+	}
+	/** Registers a component to the core framework.
+	 * @param {string} name
+	 * @param {Function} component
+	 */
+	static registerComponent(name, component) {
+		if (typeof(name) !== 'string')
+			throw RasPG.debug.exceptions.brokenTypeEnforcement('RasPG.registerComponent.name', 'string')
+		if (typeof(component) !== 'function')
+			throw RasPG.debug.exceptions.brokenTypeEnforcement('RasPG.register.component', 'function')
+		if (this.runtime.components.has(name)) {
+			console.warn(`[RasPG - Core] Attempted to register component "${name}" more than once.`
+				+'\nNo clue here, honestly; unless also attempting to register an extension more than once')
+			return false
+		}
+
+		this.runtime.components.set(name, component)
+	}
+	/** Registers an extension to the core framework. Modules, classes and components must be registered separately.
+	 * @param {string} name
+	 * @param {{ description?: string, author?: string, version?: string, repository?: string, minimumCoreVersion?: string }} metadata
+	 */
+	static registerExtension(name, metadata) {
+		if (typeof(name) !== 'string')
+			throw RasPG.debug.exceptions.brokenTypeEnforcement('RasPG.registerExtension.name', 'string')
+		if (typeof(metadata) !== 'object')
+			throw RasPG.debug.exceptions.brokenTypeEnforcement('RasPG.registerExtension.metadata', 'object')
+		if (this.runtime.extensions.has(name)) {
+			console.warn(`[RasPG - Core] Attempted to register extension "${name}" more than once.`
+				+'\nMaybe importing on or from multiple places')
+			return false
+		}
+
+		this.runtime.extensions.set(name, metadata || {})
+	}
 }
 
 //# Modules
@@ -250,9 +347,9 @@ class GameObject {
 		HookModule.run('before:GameObject.constructor', arguments, this)
 
 		if (GameObject.#all.has(id))
-			throw EXCEPTIONS.objectIDConflict(id)
+			throw RasPG.debug.exceptions.objectIDConflict(id)
 		if (typeof(id) !== 'string')
-			throw EXCEPTIONS.brokenEnforcedType('GameObject.id', 'string')
+			throw RasPG.debug.exceptions.brokenTypeEnforcement('GameObject.id', 'string')
 
 		this.#id = id
 		if (options.tags)
@@ -299,7 +396,7 @@ class GameObject {
 		let object
 
 		if (typeof(id) === 'object' && !this.isPrototypeOf(id))
-			throw EXCEPTIONS.notGameObject
+			throw RasPG.debug.exceptions.notGameObject
 		if (typeof(id) === 'string') {
 			object = this.find(id)
 			if (!object) {
@@ -338,7 +435,7 @@ class GameObject {
 		else {
 			instance = new (Component.resolve(component))()
 			if (!instance)
-				throw EXCEPTIONS.notComponent
+				throw RasPG.debug.exceptions.notComponent
 		}
 
 		// if (this.tags.has('PROXIED'))
@@ -379,7 +476,7 @@ class GameObject {
 
 		let actualComponent = Component.resolve(component)
 		if (!actualComponent)
-			throw EXCEPTIONS.notComponent()
+			throw RasPG.debug.exceptions.notComponent()
 
 		HookModule.run('after:GameObject.instance.component', arguments, this)
 		return this._components.find(e => e instanceof actualComponent) || null
@@ -392,7 +489,7 @@ class GameObject {
 
 		let actualComponent = Component.resolve(component)
 		if (!actualComponent)
-			throw EXCEPTIONS.notComponent()
+			throw RasPG.debug.exceptions.notComponent()
 
 		return !!this.component(actualComponent)
 	}
@@ -403,7 +500,7 @@ class GameObject {
 		HookModule.run('before:GameObject.instance.tag', arguments, this)
 
 		if (typeof(tag) !== 'string')
-			throw EXCEPTIONS.brokenEnforcedType('GameObject.instance.tag.tag', 'string')
+			throw RasPG.debug.exceptions.brokenTypeEnforcement('GameObject.instance.tag.tag', 'string')
 		if (this.#tags.has(tag))
 			return false
 
@@ -419,7 +516,7 @@ class GameObject {
 		HookModule.run('before:GameObject.instance.untag', arguments, this)
 
 		if (typeof(tag) !== 'string')
-			throw EXCEPTIONS.brokenEnforcedType('GameObject.instance.untag.tag', 'string')
+			throw RasPG.debug.exceptions.brokenTypeEnforcement('GameObject.instance.untag.tag', 'string')
 		if (!this.#tags.has(tag))
 			return false
 
@@ -435,7 +532,7 @@ class GameObject {
 		HookModule.run('GameObject.instance.isTagged', arguments, this)
 
 		if (typeof(tag) !== 'string')
-			throw EXCEPTIONS.brokenEnforcedType('GameObject.instance.isTagged.tag', 'string')
+			throw RasPG.debug.exceptions.brokenTypeEnforcement('GameObject.instance.isTagged.tag', 'string')
 
 		return (this.#tags.has(tag))
 	}
@@ -495,7 +592,7 @@ class Stateful extends Component {
 		HookModule.run('Stateful.instance.get', arguments, this)
 
 		if (typeof(variable) !== 'string')
-			throw EXCEPTIONS.brokenEnforcedType('Stateful.instance.get.variable', 'string')
+			throw RasPG.debug.exceptions.brokenTypeEnforcement('Stateful.instance.get.variable', 'string')
 		if (!(variable in this.#data))
 			return LOGS.elementNotRegisteredInCollection(variable, 'Stateful.instance.data')
 
@@ -509,14 +606,14 @@ class Stateful extends Component {
 		HookModule.run('before:Stateful.instance.set', arguments, this)
 
 		if (typeof(variable) !== 'string')
-			throw EXCEPTIONS.brokenEnforcedType('Stateful.instance.set.variable', 'string')
+			throw RasPG.debug.exceptions.brokenTypeEnforcement('Stateful.instance.set.variable', 'string')
 		switch (typeof(value)) {
 			case 'number':
 			case 'boolean':
 			case 'undefined':
 				break
 			default:
-				throw EXCEPTIONS.brokenEnforcedType('Stateful.instance.set.value', 'number | boolean | undefined')
+				throw RasPG.debug.exceptions.brokenTypeEnforcement('Stateful.instance.set.value', 'number | boolean | undefined')
 		}
 		if (!(variable in this.#data))
 			return LOGS.elementNotRegisteredInCollection(variable, 'Stateful.instance.data')
@@ -546,14 +643,14 @@ class Stateful extends Component {
 		HookModule.run('before:Stateful.instance.create', arguments, this)
 
 		if (typeof(variable) !== 'string')
-			throw EXCEPTIONS.brokenEnforcedType('Stateful.instance.create.variable', 'string')
+			throw RasPG.debug.exceptions.brokenTypeEnforcement('Stateful.instance.create.variable', 'string')
 		switch (typeof(initialValue)) {
 			case 'number':
 			case 'boolean':
 			case 'undefined':
 				break
 			default:
-				throw EXCEPTIONS.brokenEnforcedType('Stateful.instance.set.initialValue', 'number | boolean | undefined')
+				throw RasPG.debug.exceptions.brokenTypeEnforcement('Stateful.instance.set.initialValue', 'number | boolean | undefined')
 		}
 		if (variable in this.#data)
 			return false
@@ -584,7 +681,7 @@ class Stringful extends Component {
 		HookModule.run('Stringful.instance.get', arguments, this)
 
 		if (typeof(key) !== 'string')
-			throw EXCEPTIONS.brokenEnforcedType('Stringful.instance.get.key', 'string')
+			throw RasPG.debug.exceptions.brokenTypeEnforcement('Stringful.instance.get.key', 'string')
 
 		let string = this.#strings.get(key)
 		if (typeof(string) === 'function')
@@ -600,9 +697,9 @@ class Stringful extends Component {
 		HookModule.run('before:Stringful.instance.set', arguments, this)
 
 		if (typeof(key) !== 'string')
-			throw EXCEPTIONS.brokenEnforcedType('Stringful.instance.set.key', 'string')
+			throw RasPG.debug.exceptions.brokenTypeEnforcement('Stringful.instance.set.key', 'string')
 		if (typeof(string) !== 'string' && typeof(string) !== 'function')
-			throw EXCEPTIONS.brokenEnforcedType('Stringful.instance.set.string', 'string | () => string')
+			throw RasPG.debug.exceptions.brokenTypeEnforcement('Stringful.instance.set.string', 'string | () => string')
 
 		const previous = this.#strings.get(key)
 		this.#strings.set(key, string)
@@ -647,11 +744,11 @@ class Perceptible extends Component {
 		HookModule.run('before:Perceptible.instance.setDescriptions', arguments, this)
 
 		if (typeof(name) !== 'string' && typeof(name) !== 'function')
-			throw EXCEPTIONS.brokenEnforcedType('Perceptible.instance.setDescriptions.name', 'string | () => string')
+			throw RasPG.debug.exceptions.brokenTypeEnforcement('Perceptible.instance.setDescriptions.name', 'string | () => string')
 		if (typeof(short) !== 'string' && typeof(short) !== 'function')
-			throw EXCEPTIONS.brokenEnforcedType('Perceptible.instance.setDescriptions.short', 'string | () => string')
+			throw RasPG.debug.exceptions.brokenTypeEnforcement('Perceptible.instance.setDescriptions.short', 'string | () => string')
 		if (typeof(long) !== 'string' && typeof(long) !== 'function')
-			throw EXCEPTIONS.brokenEnforcedType('Perceptible.instance.setDescriptions.long', 'string | () => string')
+			throw RasPG.debug.exceptions.brokenTypeEnforcement('Perceptible.instance.setDescriptions.long', 'string | () => string')
 
 		this.parent._strings.set('sense.name', name)
 		this.parent._strings.set('sense.descriptionShort', short)
@@ -670,11 +767,11 @@ class Perceptible extends Component {
 		HookModule.run('before:Perceptible.instance.setPerception', arguments, this)
 
 		if (typeof(sense) !== 'string')
-			throw EXCEPTIONS.brokenEnforcedType('Perceptible.instance.addPerception.sense', 'string')
+			throw RasPG.debug.exceptions.brokenTypeEnforcement('Perceptible.instance.addPerception.sense', 'string')
 		if (typeof(context) !== 'string')
-			throw EXCEPTIONS.brokenEnforcedType('Perceptible.instance.addPerception.context', 'string')
+			throw RasPG.debug.exceptions.brokenTypeEnforcement('Perceptible.instance.addPerception.context', 'string')
 		if (typeof(description) !== 'string' && typeof(description) !== 'function')
-			throw EXCEPTIONS.brokenEnforcedType('Perceptible.instance.addPerception.description', 'string | () => string')
+			throw RasPG.debug.exceptions.brokenTypeEnforcement('Perceptible.instance.addPerception.description', 'string | () => string')
 
 		if (!this.#perceptions.has(sense))
 			this.#perceptions.set(sense, new Map())
@@ -694,9 +791,9 @@ class Perceptible extends Component {
 		HookModule.run('before:Perceptible.instance.removePerception', arguments, this)
 
 		if (typeof(sense) !== 'string')
-			throw EXCEPTIONS.brokenEnforcedType('Perceptible.instance.addPerception.sense', 'string')
+			throw RasPG.debug.exceptions.brokenTypeEnforcement('Perceptible.instance.addPerception.sense', 'string')
 		if (typeof(context) !== 'string')
-			throw EXCEPTIONS.brokenEnforcedType('Perceptible.instance.addPerception.context', 'string')
+			throw RasPG.debug.exceptions.brokenTypeEnforcement('Perceptible.instance.addPerception.context', 'string')
 		if (!this.#perceptions.has(sense))
 			return false
 		if (!this.#perceptions.get(sense).has(context))
@@ -716,13 +813,13 @@ class Perceptible extends Component {
 		HookModule.run('before:Perceptible.instance.perceive', arguments, this)
 
 		if (typeof(sense) !== 'string')
-			throw EXCEPTIONS.brokenEnforcedType('Perceptible.instance.perceive.sense', 'string')
+			throw RasPG.debug.exceptions.brokenTypeEnforcement('Perceptible.instance.perceive.sense', 'string')
 		if (typeof(context) !== 'string')
-			throw EXCEPTIONS.brokenEnforcedType('Perceptible.instance.perceive.context', 'string')
+			throw RasPG.debug.exceptions.brokenTypeEnforcement('Perceptible.instance.perceive.context', 'string')
 		if (!this.#perceptions.has(sense))
 			return null
 		if (!GameObject.isPrototypeOf(sensor))
-			throw EXCEPTIONS.notGameObject()
+			throw RasPG.debug.exceptions.notGameObject()
 
 		const perceptions = this.#perceptions.get(sense)
 		let found
@@ -948,9 +1045,9 @@ class Actionable extends Component {
 		HookModule.run('before:Actionable.registerAction', arguments, this)
 
 		if (typeof(name) !== 'string')
-			throw EXCEPTIONS.brokenEnforcedType('Actionable.registerAction.name', 'string')
+			throw RasPG.debug.exceptions.brokenTypeEnforcement('Actionable.registerAction.name', 'string')
 		if (this.isAction(name))
-			throw EXCEPTIONS.generalIDConflict('Actionable.#actions', name)
+			throw RasPG.debug.exceptions.generalIDConflict('Actionable.#actions', name)
 
 		this.#actions.set(name, {
 			predicate: actionObject.predicate || undefined,
@@ -976,7 +1073,7 @@ class Actionable extends Component {
 		HookModule.run('before:Actionable.disable', arguments, this)
 
 		if (typeof(action) !== 'string')
-			throw EXCEPTIONS.brokenEnforcedType('Actionable.disable.action', 'string')
+			throw RasPG.debug.exceptions.brokenTypeEnforcement('Actionable.disable.action', 'string')
 		if (!Actionable.isAction(action))
 			return LOGS.elementNotRegisteredInCollection(action, 'Actionable.#actions')
 
@@ -992,7 +1089,7 @@ class Actionable extends Component {
 		HookModule.run('before:Actionable.enable', arguments, this)
 
 		if (typeof(action) !== 'string')
-			throw EXCEPTIONS.brokenEnforcedType('Actionable.enable.action', 'string')
+			throw RasPG.debug.exceptions.brokenTypeEnforcement('Actionable.enable.action', 'string')
 		if (!Actionable.isAction(action))
 			return LOGS.elementNotRegisteredInCollection(action, 'Actionable.#actions')
 		if (!Actionable.#disabledActions.has(action))
@@ -1010,7 +1107,7 @@ class Actionable extends Component {
 		HookModule.run('before:Actionable.instance.agentsCan', arguments, this)
 
 		if (typeof(action) !== 'string')
-			throw EXCEPTIONS.brokenEnforcedType('Actionable.instance.agentsCan.action', 'string')
+			throw RasPG.debug.exceptions.brokenTypeEnforcement('Actionable.instance.agentsCan.action', 'string')
 
 		if (typeof(action) === 'string') {
 			if (!Actionable.isAction(action))
@@ -1037,7 +1134,7 @@ class Actionable extends Component {
 		HookModule.run('before:Actionable.instance.agentsCannot', arguments, this)
 
 		if (typeof(action) !== 'string')
-			throw EXCEPTIONS.brokenEnforcedType('Actionable.instance.agentsCannot.action', 'string')
+			throw RasPG.debug.exceptions.brokenTypeEnforcement('Actionable.instance.agentsCannot.action', 'string')
 		if (typeof(action) === 'string') {
 			if (!Actionable.isAction(action))
 				return LOGS.elementNotRegisteredInCollection(action, 'Actionable.#actions')
@@ -1081,9 +1178,9 @@ class Agentive {
 		HookModule.run('before:Agentive.registerAct', arguments, this)
 
 		if (typeof(act) !== 'string')
-			throw EXCEPTIONS.brokenEnforcedType('Agentive.registerAct.act', 'string')
+			throw RasPG.debug.exceptions.brokenTypeEnforcement('Agentive.registerAct.act', 'string')
 		if (this.isAct(name))
-			throw EXCEPTIONS.generalIDConflict('Agentive.#acts', name)
+			throw RasPG.debug.exceptions.generalIDConflict('Agentive.#acts', name)
 
 		this.#acts.set(name, {
 			predicate: actObject.predicate || undefined,
@@ -1109,7 +1206,7 @@ class Agentive {
 		HookModule.run('before:Agentive.disable', arguments, this)
 
 		if (typeof(act) !== 'string')
-			throw EXCEPTIONS.brokenEnforcedType('Agentive.disable.act', 'string')
+			throw RasPG.debug.exceptions.brokenTypeEnforcement('Agentive.disable.act', 'string')
 		if (!Agentive.isAct(act))
 			return LOGS.elementNotRegisteredInCollection(act, 'Agentive.#acts')
 
@@ -1125,7 +1222,7 @@ class Agentive {
 		HookModule.run('before:Agentive.enable', arguments, this)
 
 		if (typeof(act) !== 'string')
-			throw EXCEPTIONS.brokenEnforcedType('Agentive.enable.act', 'string')
+			throw RasPG.debug.exceptions.brokenTypeEnforcement('Agentive.enable.act', 'string')
 		if (!Agentive.isAct(act))
 			return LOGS.elementNotRegisteredInCollection(act, 'Agentive.#acts')
 		if (!Agentive.#disabledActs.has(act))
@@ -1143,7 +1240,7 @@ class Agentive {
 		HookModule.run('before:Agentive.instance.can', arguments, this)
 
 		if (typeof(act) !== 'string')
-			throw EXCEPTIONS.brokenEnforcedType('Agentive.instance.can.act', 'string')
+			throw RasPG.debug.exceptions.brokenTypeEnforcement('Agentive.instance.can.act', 'string')
 		if (typeof(act) === 'string') {
 			if (!Agentive.isAction(act))
 				return LOGS.elementNotRegisteredInCollection(act, 'Agentive.instance.#acts')

@@ -1,4 +1,15 @@
+//# Typedefs
 /** @typedef {{calculation: (stat: Stat) => number, roundToNearest: number | false }} StatTypeOptions  */
+
+//* Registration
+if (!RasPG)
+	throw new Error('[RasPG - Stats&Combat] Framework core missing'
+		+'\nMaybe incorrect import/load order')
+RasPG.registerExtension('Stats & Combat', {
+	author: 'Rasutei',
+	version: '0.0.0-dev',
+	description: 'An extension including resources for combat systems, such as stats and stat modifiers (e.g. HP, attack), and status effects (e.g. buffs/debuffs). Also includes a turn-based combat system module.',
+})
 
 //# Module
 
@@ -65,7 +76,7 @@ class StatType {
 			return actualType
 		}
 
-		throw EXCEPTIONS.brokenEnforcedType('StatType.resolve.type', 'string | StatType')
+		throw RasPG.debug.exceptions.brokenTypeEnforcement('StatType.resolve.type', 'string | StatType')
 	}
 
 	/** Calculates a given stat's final value. In order: runs the given calculation, applies `toPrecision()`, then rounds to nearest, if set.
@@ -102,10 +113,10 @@ class Stat {
 		HookModule.run('before:Stat.constructor', arguments, this)
 
 		if (typeof(initialValue) !== 'number')
-			throw EXCEPTIONS.brokenEnforcedType('Stat.constructor.initialValue', 'number')
+			throw RasPG.debug.exceptions.brokenTypeEnforcement('Stat.constructor.initialValue', 'number')
 		const actualType = StatType.resolve(type)
 		if (!actualType)
-			throw EXCEPTIONS.brokenEnforcedType('Stat.constructor.type', 'StatType | string')
+			throw RasPG.debug.exceptions.brokenTypeEnforcement('Stat.constructor.type', 'StatType | string')
 
 		this.#type = actualType.name
 		this.base = initialValue
@@ -139,7 +150,7 @@ class Statful extends Component {
 		HookModule.run('Statful.instance.get', arguments, this)
 
 		if (typeof(stat) !== 'string')
-			throw EXCEPTIONS.brokenEnforcedType('Statful.get.stat', 'string')
+			throw RasPG.debug.exceptions.brokenTypeEnforcement('Statful.get.stat', 'string')
 		if (!this.#stats.has(stat))
 			return null
 
@@ -154,9 +165,9 @@ class Statful extends Component {
 		HookModule.run('before:Statful.instance.set', arguments, this)
 
 		if (typeof stat !== 'string')
-			throw EXCEPTIONS.brokenEnforcedType('Statful.instance.set.stat', 'string')
+			throw RasPG.debug.exceptions.brokenTypeEnforcement('Statful.instance.set.stat', 'string')
 		if (typeof value !== 'number')
-			throw EXCEPTIONS.brokenEnforcedType('Statful.instance.set.value', 'number')
+			throw RasPG.debug.exceptions.brokenTypeEnforcement('Statful.instance.set.value', 'number')
 		if (!this.#stats.has(stat))
 			return false
 
@@ -182,9 +193,9 @@ class Statful extends Component {
 		HookModule.run('before:Statful.instance.modify', arguments, this)
 
 		if (typeof stat !== 'string')
-			throw EXCEPTIONS.brokenEnforcedType('Statful.instance.modify.stat', 'string')
+			throw RasPG.debug.exceptions.brokenTypeEnforcement('Statful.instance.modify.stat', 'string')
 		if (typeof change !== 'number')
-			throw EXCEPTIONS.brokenEnforcedType('Statful.instance.modify.change', 'number')
+			throw RasPG.debug.exceptions.brokenTypeEnforcement('Statful.instance.modify.change', 'number')
 		if (!this.#stats.has(stat))
 			return false
 
@@ -209,9 +220,9 @@ class Statful extends Component {
 		HookModule.run('before:Statful.instance.give', arguments, this)
 
 		if (typeof stat !== 'string')
-			throw EXCEPTIONS.brokenEnforcedType('Statful.instance.give.stat', 'string')
+			throw RasPG.debug.exceptions.brokenTypeEnforcement('Statful.instance.give.stat', 'string')
 		if (typeof initialValue !== 'number')
-			throw EXCEPTIONS.brokenEnforcedType('Statful.instance.give.initialValue', 'number')
+			throw RasPG.debug.exceptions.brokenTypeEnforcement('Statful.instance.give.initialValue', 'number')
 		if (this.#stats.has(stat))
 			return false
 
@@ -228,13 +239,8 @@ class Statful extends Component {
 		HookModule.run('after:Statful.instance.give', arguments, this)
 		return true
 	}
-	/** Modifies an existing stat by a delta. Returns `true`, if successful, and `false`, if the stat does not exist.
-	 * @param {string} name
-	 * @param {number} delta
-	 */
-	modifyStat(name, delta) {}
 }
-class Combatant {
+class Combatant extends Component {
 	static reference = '_combat'
 	static requires = [Actionable, Agentive, Statful]
 	//? Note: Expected to be bundled with the Combat module.
