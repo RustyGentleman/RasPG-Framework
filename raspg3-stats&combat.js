@@ -28,7 +28,7 @@ class StatType {
 	}
 
 	static get all() {
-		return new Set(this.#all)
+		return new Map(this.#all)
 	}
 
 	/** Returns the stat type with the given name, if found, or `null`, if not found.
