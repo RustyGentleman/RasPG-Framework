@@ -1017,7 +1017,10 @@ class Agentive {
 
 	/** Returns the map of registered acts. */
 	static get acts() {
-		return this.#acts.difference(this.#disabledActs)
+		return new Map(
+			Array.from(this.#acts)
+				.filter(([key, _]) => !this.#disabledActs.has(key))
+		)
 	}
 	/** Returns the names of acts allowed by the object. */
 	get acts() {
@@ -1032,14 +1035,18 @@ class Agentive {
 		HookModule.run('before:Agentive.registerAct', arguments, this)
 		if (typeof(act) !== 'string')
 			throw EXCEPTIONS.brokenEnforcedType('Agentive.registerAct.act', 'string')
-		this.#acts.set(name, { predicate: actObject.predicate || undefined, callback: actObject.callback})
+		if (this.isAct(name))
+			throw EXCEPTIONS.generalIDConflict('Agentive.#acts', name)
 		HookModule.run('after:Agentive.registerAct', arguments, this)
 	}
 	/** Returns whether the given act name is registered as an act in the component's registry, and not currently disabled.
 	 * @param {string} act Convention: no spaces, camelCase. Can be organized into domains (i.e. 'item.drop').
+	 * @param {{enabledOnly: boolean}} options Only `enabledOnly`: `true` by default; if `false`, will check regardless of disabled actions.
 	 */
-	static isAct(act) {
-		HookModule.run('Actionable.isAction', arguments, this)
+	static isAct(act, options) {
+		HookModule.run('Actionable.isAct', arguments, this)
+		if (options.enabledOnly === false)
+			return this.#acts.has(act)
 		return this.acts.has(act)
 	}
 	/** Completely disables the given act system-wide. Returns `true`, if successful, and `false`, if an error occurred.
