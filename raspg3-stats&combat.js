@@ -128,75 +128,106 @@ class Stat {
 }
 
 //# Components
-class Statful {
+class Statful extends Component {
 	static reference = '_stats'
-	static #stats = new Map()
 	#stats = new Map()
-	//? Note: Expected to be bundled with the Combat module.
 
-	static create(stat, options) {}
-
-	/** Gets the value correlated with the given stat name.
+	/**
+	 * Gets the net value of the stat with the given name.
+	 * Returns the net calculated value if found, or null if the stat does not exist.
 	 * @param {string} stat Convention: no spaces, camelCase.
 	 */
 	get(stat) {
-		HookModule.run('Combatable.instance.get', arguments, this)
-		return this.#stats[stat]
+		HookModule.run('Statful.instance.get', arguments, this)
+
+		if (typeof(stat) !== 'string')
+			throw EXCEPTIONS.brokenEnforcedType('Statful.get.stat', 'string')
+		if (!this.#stats.has(stat))
+			return null
+
+		return this.#stats.get(stat)
 	}
-	/** Sets the value correlated with the given stat name. Returns `true`, if successful, and `false`, if the stat does not exist.
+
+	/** Sets the stat's base value. Returns `true`, if successful, and `false`, if stat isn't present.
 	 * @param {string} stat Convention: no spaces, camelCase.
-	 * @param {boolean | number} value
+	 * @param {number} value
 	 */
 	set(stat, value) {
-		HookModule.run('before:Combatable.instance.set', arguments, this)
-		if (typeof(stat) !== 'string')
-			throw EXCEPTIONS.brokenEnforcedType('Combatable.instance.set.stat', 'string')
-		switch (typeof(value)) {
-			case 'number':
-			case 'boolean':
-				break
-			default:
-				throw EXCEPTIONS.brokenEnforcedType('Combatable.instance.set.value', 'number | boolean')
-		}
-		if (!this.#stats.hasOwnProperty(stat)) {
-			LOGS.elementNotRegisteredInCollection(stat, 'Combatable.instance.#stats')
+		HookModule.run('before:Statful.instance.set', arguments, this)
+
+		if (typeof stat !== 'string')
+			throw EXCEPTIONS.brokenEnforcedType('Statful.instance.set.stat', 'string')
+		if (typeof value !== 'number')
+			throw EXCEPTIONS.brokenEnforcedType('Statful.instance.set.value', 'number')
+		if (!this.#stats.has(stat))
 			return false
-		}
-		const previous = this.#stats[stat]
-		this.#stats[stat] = value
+
+		const actualStat = this.#stats.get(stat)
+		const previous = actualStat.base
+		actualStat.base = value
+
 		EventModule.emitPropertyEvents({
 			object: this.parent,
 			property: stat,
 			previous,
 			current: value
 		}, 'stats.')
-		HookModule.run('after:Combatable.instance.set', arguments, this)
+
+		HookModule.run('after:Statful.instance.set', arguments, this)
 		return true
 	}
-	/** Adds a stat and a default value. Returns `true`, if successful, and `false`, if the stat already exists, ignoring the operation.
+	/** Modifies the stat's base value by the given change. Returns `true`, if successful, and `false`, if stat isn't present.
 	 * @param {string} stat Convention: no spaces, camelCase.
-	 * @param {boolean | number} value
+	 * @param {number} change
 	 */
-	create(stat, initialValue) {
-		HookModule.run('before:Combatable.instance.create', arguments, this)
-		if (typeof(stat) !== 'string')
-			throw EXCEPTIONS.brokenEnforcedType('Combatable.instance.create.stat', 'string')
-		switch (typeof(initialValue)) {
-			case 'number':
-			case 'boolean':
-				break
-			default:
-				throw EXCEPTIONS.brokenEnforcedType('Combatable.instance.set.initialValue', 'number | boolean')
-		}
-		if (this.#stats[stat] === undefined)
+	modify(stat, change) {
+		HookModule.run('before:Statful.instance.modify', arguments, this)
+
+		if (typeof stat !== 'string')
+			throw EXCEPTIONS.brokenEnforcedType('Statful.instance.modify.stat', 'string')
+		if (typeof change !== 'number')
+			throw EXCEPTIONS.brokenEnforcedType('Statful.instance.modify.change', 'number')
+		if (!this.#stats.has(stat))
 			return false
-		this.#stats[stat] = initialValue
-		EventModule.emit(`stats.created`, {
+
+		const actualStat = this.#stats.get(stat)
+		const previous = actualStat.base
+		actualStat.base += change
+
+		EventModule.emitPropertyEvents({
+			object: this.parent,
+			property: stat,
+			previous,
+			current: actualStat.base
+		}, 'stats.')
+		HookModule.run('after:Statful.instance.modify', arguments, this)
+		return true
+	}
+	/** Gives the object a new stat. Returns `true`, if successful, and `false`, if already present.
+	 * @param {string} stat Convention: no spaces, camelCase.
+	 * @param {number} initialValue
+	 */
+	give(stat, initialValue) {
+		HookModule.run('before:Statful.instance.give', arguments, this)
+
+		if (typeof stat !== 'string')
+			throw EXCEPTIONS.brokenEnforcedType('Statful.instance.give.stat', 'string')
+		if (typeof initialValue !== 'number')
+			throw EXCEPTIONS.brokenEnforcedType('Statful.instance.give.initialValue', 'number')
+		if (this.#stats.has(stat))
+			return false
+
+		const actualType = StatType.find(stat)
+		if (!actualType)
+			return actualType
+		this.#stats.set(stat, actualType.create(initialValue))
+
+		EventModule.emit('stats.created', {
 			object: this.parent,
 			stat,
 			initialValue
 		})
-		HookModule.run('after:Combatable.instance.create', arguments, this)
+		HookModule.run('after:Statful.instance.give', arguments, this)
 		return true
 	}
 	/** Modifies an existing stat by a delta. Returns `true`, if successful, and `false`, if the stat does not exist.
