@@ -40,7 +40,7 @@ class RasPG {
 		version: '3.0.0-dev',
 		repository: 'https://github.com/RustyGentleman/RasPG-Framework',
 	}
-	static configuration = {
+	static config = {
 		parameterTypeEnforcement: true,
 		logWarnings: true,
 		logErrors: true,
@@ -63,25 +63,25 @@ class RasPG {
 		},
 		logs: {
 			gameObjectNotFound: (objectID) => {
-				if (RasPG.configuration.logErrors)
+				if (RasPG.config.logErrors)
 					console.error(`[RasPG] ID "${objectID}" does not presently correspond to a registered GameObject instance.`
 						+'\nMaybe typo, or not yet created at this line')
 				return false
 			},
 			incorrectPrototype: (objectID, className, operation) => {
-				if (RasPG.configuration.logWarnings)
+				if (RasPG.config.logWarnings)
 					console.warn(`[RasPG] Object (ID "${objectID}") must be sub-class of ${className} for use in operation ${operation}`
 						+'\nMaybe wrong object reference')
 				return false
 			},
 			missingRequiredComponentForOperation: (objectID, componentName, operation) => {
-				if (RasPG.configuration.logWarnings)
+				if (RasPG.config.logWarnings)
 					console.warn(`[RasPG] Object (ID "${objectID}") is missing required component (${componentName}) for operation (${operation})`
 						+'\nMaybe wrong object, forgot to add or register component, or added wrong component (Actionable vs Agentive)')
 				return false
 			},
 			elementNotRegisteredInCollection: (element, collection) => {
-				if (RasPG.configuration.logWarnings)
+				if (RasPG.config.logWarnings)
 					console.warn(`[RasPG] Element "${element}" is not registered in collection "${collection}"`
 						+'\nMaybe typo, wrong collection, or not yet added at this line')
 				return false
@@ -97,7 +97,7 @@ class RasPG {
 		if (typeof(name) !== 'string')
 			throw RasPG.debug.exceptions.brokenTypeEnforcement('RasPG.registerModule.name', 'string')
 		if (typeof(module) !== 'function')
-			throw RasPG.debug.exceptions.brokenTypeEnforcement('RasPG.register.module', 'function')
+			throw RasPG.debug.exceptions.brokenTypeEnforcement('RasPG.registerModule.module', 'function')
 		if (this.runtime.modules.has(name)) {
 			console.warn(`[RasPG - Core] Attempted to register module "${name}" more than once.`
 				+'\nNo clue here, honestly; unless also attempting to register an extension more than once')
@@ -114,7 +114,7 @@ class RasPG {
 		if (typeof(name) !== 'string')
 			throw RasPG.debug.exceptions.brokenTypeEnforcement('RasPG.registerClass.name', 'string')
 		if (typeof(clss) !== 'function')
-			throw RasPG.debug.exceptions.brokenTypeEnforcement('RasPG.register.clss', 'function')
+			throw RasPG.debug.exceptions.brokenTypeEnforcement('RasPG.registerClass.clss', 'function')
 		if (this.runtime.classes.has(name)) {
 			console.warn(`[RasPG - Core] Attempted to register class "${name}" more than once.`
 				+'\nNo clue here, honestly; unless also attempting to register an extension more than once')
@@ -131,7 +131,7 @@ class RasPG {
 		if (typeof(name) !== 'string')
 			throw RasPG.debug.exceptions.brokenTypeEnforcement('RasPG.registerComponent.name', 'string')
 		if (typeof(component) !== 'function')
-			throw RasPG.debug.exceptions.brokenTypeEnforcement('RasPG.register.component', 'function')
+			throw RasPG.debug.exceptions.brokenTypeEnforcement('RasPG.registerComponent.component', 'function')
 		if (this.runtime.components.has(name)) {
 			console.warn(`[RasPG - Core] Attempted to register component "${name}" more than once.`
 				+'\nNo clue here, honestly; unless also attempting to register an extension more than once')
