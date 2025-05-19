@@ -496,7 +496,7 @@ class Stateful extends Component {
 
 		if (typeof(variable) !== 'string')
 			throw EXCEPTIONS.brokenEnforcedType('Stateful.instance.get.variable', 'string')
-		if (!this.#data.hasOwnProperty(variable))
+		if (!(variable in this.#data))
 			return LOGS.elementNotRegisteredInCollection(variable, 'Stateful.instance.data')
 
 		return this.#data[variable]
@@ -518,7 +518,7 @@ class Stateful extends Component {
 			default:
 				throw EXCEPTIONS.brokenEnforcedType('Stateful.instance.set.value', 'number | boolean | undefined')
 		}
-		if (!this.#data.hasOwnProperty(variable))
+		if (!(variable in this.#data))
 			return LOGS.elementNotRegisteredInCollection(variable, 'Stateful.instance.data')
 
 		const previous = this.#data[variable]
@@ -555,7 +555,7 @@ class Stateful extends Component {
 			default:
 				throw EXCEPTIONS.brokenEnforcedType('Stateful.instance.set.initialValue', 'number | boolean | undefined')
 		}
-		if (this.#data[variable] === undefined)
+		if (variable in this.#data)
 			return false
 
 		this.#data[variable] = initialValue
