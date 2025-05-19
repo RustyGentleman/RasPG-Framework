@@ -132,9 +132,7 @@ class Statful extends Component {
 	static reference = '_stats'
 	#stats = new Map()
 
-	/**
-	 * Gets the net value of the stat with the given name.
-	 * Returns the net calculated value if found, or null if the stat does not exist.
+	/** Returns the given Stat instance from the object. Returns `null`, if not found
 	 * @param {string} stat Convention: no spaces, camelCase.
 	 */
 	get(stat) {
