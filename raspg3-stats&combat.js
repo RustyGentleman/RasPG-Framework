@@ -47,12 +47,12 @@ class StatType {
 		if (type instanceof StatType)
 			return type
 		if (typeof(type) === 'string') {
-			const type = this.find(type)
-			if (!type) {
+			const actualType = this.find(type)
+			if (!actualType) {
 				LOGS.elementNotRegisteredInCollection(type, 'StatType.#all')
 				return null
 			}
-			return type
+			return actualType
 		}
 
 		throw EXCEPTIONS.brokenEnforcedType('StatType.resolve.type', 'string | StatType')
