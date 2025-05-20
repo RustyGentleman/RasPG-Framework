@@ -1154,7 +1154,7 @@ class Actionable extends Component {
 		return ret
 	}
 }  RasPG.registerComponent('Actionable', Actionable)
-class Agentive {
+class Agentive extends Component {
 	static reference = '_acts'
 	static #acts = new Map()
 	static #disabledActs = new Set()
