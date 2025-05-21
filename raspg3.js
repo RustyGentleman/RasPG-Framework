@@ -60,6 +60,7 @@ class RasPG {
 			objectIDConflict: (objectID) => new Error('[RasPG] Conflicting GameObject IDs: ', objectID),
 			generalIDConflict: (domainPath, id) => new Error(`[RasPG] Conflicting IDs on ${domainPath}: `, id),
 			brokenTypeEnforcement: (param, type) => new Error(`[RasPG] Enforced parameter/property type broken: ${param} : ${type}`),
+			missingParameter: (param) => new Error(`[RasPG] Missing parameters: ${param}`),
 		},
 		logs: {
 			gameObjectNotFound: (objectID) => {
@@ -86,7 +87,48 @@ class RasPG {
 						+'\nMaybe typo, wrong collection, or not yet added at this line')
 				return false
 			},
+			componentMissingSerializationFunction: (element, collection) => {
+				if (RasPG.config.logWarnings)
+					console.warn(`[RasPG] Element "${element}" is not registered in collection "${collection}"`
+						+'\nMaybe typo, wrong collection, or not yet added at this line')
+				return false
+			},
 		},
+		validate: {
+			type(path, variable, typeSpec) {
+				const [type, label] = Array.isArray(typeSpec)? [typeSpec, typeSpec] : [typeSpec, typeSpec]
+				const valid = type.split('|').some(t => typeof(variable) === t.trim())
+				if (!valid)
+					throw RasPG.debug.exceptions.brokenTypeEnforcement(path+'.'+variable, label)
+			},
+			/**
+			 * Throws an exception if required properties are missing or mistyped, or if present optional properties are mistyped.
+			 * @param {string} path Domain(.instance).method.param
+			 * @param {Object} object Object to be validated
+			 * @param {{ [prop: string]: string | [string, string] }} required Required properties and their types
+			 * @param {{ [prop: string]: string | [string, string] }} optional Optional properties and their types
+			 */
+			props(path, object, required={}, optional={}) {
+				for (const [prop, typeSpec] of Object.entries(required)) {
+					if (!(prop in object))
+						throw RasPG.debug.exceptions.missingParameter(prop)
+					this.check(path, object[prop], typeSpec)
+				}
+				for (const [prop, typeSpec] of Object.entries(optional)) {
+					if (prop in object)
+						this.check(path, object[prop], typeSpec)
+				}
+			},
+			/**
+			 * Throws an exception if any of the passed variables are mistyped.
+			 * @param {string} path Domain(.instance).method.param
+			 * @param {Array<[any, string | [string, string]]>} checks
+			 */
+			types(path, checks) {
+				for (const [param, typeSpec] of checks)
+					this.check(path, param, typeSpec)
+			}
+		}
 	}
 
 	/** Registers a module to the core framework.
