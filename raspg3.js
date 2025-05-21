@@ -454,7 +454,7 @@ class GameObject {
 
 		HookModule.run('after:GameObject.instance.addComponent', arguments, this)
 	}
-	/** Adds the given components to the object. Returns `false` if all components were already present (no-op).
+	/** Adds the given components to the object. Returns `false`, if all components were already present (no-op), and `true`, otherwise.
 	 * @param {...Component | ...string} args Either the component subclass itself, an instance of the wanted component subclass, or its name.
 	 */
 	addComponents() {
@@ -469,7 +469,7 @@ class GameObject {
 		return ret
 	}
 	/** Returns the component of the given class in the object, if found, or `null`, if not found.
-	 * @param {Component | string} component Either the component subclass itself, an instance of the wanted component subclass, or a string to be resolved to the component subclass.
+	 * @param {typeof Component | Component | string} component Either the component subclass itself, an instance of the wanted component subclass, or a string to be resolved to the component subclass.
 	 */
 	component(component) {
 		HookModule.run('before:GameObject.instance.component', arguments, this)
@@ -482,7 +482,7 @@ class GameObject {
 		return this._components.find(e => e instanceof actualComponent) || null
 	}
 	/** Returns whether or not the object has the given component or not.
-	 * @param {Class} component Either the component subclass itself, or an instance of the wanted component subclass.
+	 * @param {typeof Component | Component | string} component Either the component subclass itself, or an instance of the wanted component subclass.
 	 */
 	hasComponent(component) {
 		HookModule.run('GameObject.instance.hasComponent', arguments, this)
