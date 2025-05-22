@@ -606,30 +606,31 @@ class GameObject {
 class Component {
 	static reference
 	static requires = []
-	static #serialization
+	static serializer
+	static deserializer
 	parent
 
-	static setSerializationFunction(fn) {
-		this.#serialization = fn
-	}
-	/** Attempts to resolve a string to a Component subclass. Passes it back if first parameter is already one. Returns `null` if not found.
+	/** Attempts to resolve a string to a Component subclass. Passes it back if first parameter is already one.
 	 * @param {string | typeof Component | Component} component
 	 */
 	static resolve(component) {
 		HookModule.run('Component.resolve', arguments, this)
 
-		if (typeof(component) === 'string' && this.isPrototypeOf(eval(component)))
-			return eval(component)
 		if (typeof(component) === 'function' && this.isPrototypeOf(component))
 			return component
+		if (typeof(component) === 'string' && this.isPrototypeOf(RasPG.runtime.components.get(component)))
+			return RasPG.runtime.components.get(component)
 		if (typeof(component) === 'object' && this.isPrototypeOf(component.constructor))
 			return component.constructor
 
-		return null
+		throw RasPG.debug.exceptions.notComponent()
 	}
-	/** Uses the given `serializeFunction` to compile the component's data in the form of a JSON-compatible object.
-	 */
-	serialize() {}
+	/** Uses the component subclass' `serializer` function to compile the component instance's data in the form of a JSON-compatible object. */
+	serialize() {
+		if (!this.constructor.serializer)
+			return RasPG.debug.logs.componentMissingSerialization(this.constructor.name)
+		return this.constructor.serializer(this)
+	}
 }
 
 //# Components
