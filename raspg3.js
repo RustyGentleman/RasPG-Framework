@@ -2,7 +2,6 @@
 /** @typedef {{event: string, callback: EventCallback, owner: GameObject, once: boolean}} EventListener */
 /** @typedef {(owner: GameObject, data: EventData) => void} EventCallback */
 /** @typedef {{object: GameObject, property: string, previous: any, current: any}} EventData */
-/** @typedef {{tags: Array<string>, components: Array<Component>, watchProperties: boolean}} GameObjectOptions */
 /** @typedef {{proto: Function, component: Component, components: Iterable<Component>, operation: string, silent: boolean}} GameObjectResolveOptions */
 /** @typedef {{context: PerceptionContext, description: string | PerceptionDescriptionFunction}} Perception */
 /** @typedef {string | 'superficial' | 'direct' | 'inContainer' | 'inRoom' | 'adjacentRoom' | 'onObject'} PerceptionContext */
@@ -377,13 +376,33 @@ class HookModule {
 //# Classes
 class GameObject {
 	static #all = new Map()
+	static serializer = function(object) {
+		const data = {
+			id: object.id,
+			tags: Array.from(object.tags),
+			components: {}
+		}
+		for (const [name, instance] of object._components.entries())
+			data.components[name] = instance.serialize()
+		return data
+	}
+	static deserializer = function(data) {
+		const object = new GameObject(data.id, { tags: data.tags })
+		for (const [name, data] of Object.entries(data.components)) {
+			const component = RasPG.runtime.components.get(name)
+			if (!component)
+				throw RasPG.debug.exceptions.deserializerMissingComponent()
+			const instance = component.deserializer(data)
+			object.addComponent(instance)
+		}
+	}
 	#id
 	#tags = new Set()
-	_components = new Set()
+	_components = new Map()
 
 	/**
 	 * @param {string} id Convention: all lowercase, no spaces.
-	 * @param {GameObjectOptions} options
+	 * @param {{tags: Array<string>, components: Array<Component>, watchProperties: boolean}} options
 	 */
 	constructor(id, options) {
 		HookModule.run('before:GameObject.constructor', arguments, this)
@@ -414,7 +433,7 @@ class GameObject {
 		return new Map(this.#all)
 	}
 	get id() {
-		return this.#id + ''
+		return this.#id
 	}
 	get tags() {
 		return new Set(this.#tags)
@@ -466,7 +485,7 @@ class GameObject {
 		return object
 	}
 	/** Adds the given component to the object. Returns `true`, if successful, `null`, if the component was not found, and `false`, if the component was already present (no-op).
-	 * @param {Component | string} component Either the component subclass itself, an instance of the wanted component subclass, or its name.
+	 * @param {typeof Component | Component | string} component Either the component subclass itself, an instance of the wanted component subclass, or its name.
 	 */
 	addComponent(component) {
 		HookModule.run('before:GameObject.instance.addComponent', arguments, this)
@@ -475,9 +494,11 @@ class GameObject {
 		if (typeof component === 'object' && Component.isPrototypeOf(component.constructor))
 			instance = component
 		else {
-			instance = new (Component.resolve(component))()
-			if (!instance)
-				throw RasPG.debug.exceptions.notComponent
+			const actualComponent = Component.resolve(component)
+			if (!actualComponent)
+				return actualComponent
+			else
+				instance = new actualComponent()
 		}
 
 		// if (this.tags.has('PROXIED'))
@@ -488,7 +509,7 @@ class GameObject {
 		if (instance.constructor.requires.length)
 			for (const requirement of instance.constructor.requires)
 				this.addComponent(requirement)
-		this._components.add(instance)
+		this._components.set(instance.constructor.name, instance)
 		instance.parent = this
 
 		if (instance.constructor.reference)
@@ -514,14 +535,13 @@ class GameObject {
 	 * @param {typeof Component | Component | string} component Either the component subclass itself, an instance of the wanted component subclass, or a string to be resolved to the component subclass.
 	 */
 	component(component) {
-		HookModule.run('before:GameObject.instance.component', arguments, this)
+		HookModule.run('GameObject.instance.component', arguments, this)
 
 		let actualComponent = Component.resolve(component)
 		if (!actualComponent)
 			throw RasPG.debug.exceptions.notComponent()
 
-		HookModule.run('after:GameObject.instance.component', arguments, this)
-		return this._components.find(e => e instanceof actualComponent) || null
+		return this._components.get(actualComponent.constructor.name) || null
 	}
 	/** Returns whether or not the object has the given component or not.
 	 * @param {typeof Component | Component | string} component Either the component subclass itself, or an instance of the wanted component subclass.
@@ -533,7 +553,7 @@ class GameObject {
 		if (!actualComponent)
 			throw RasPG.debug.exceptions.notComponent()
 
-		return !!this.component(actualComponent)
+		return this._components.has(actualComponent.constructor.name)
 	}
 	/** Adds a tag to the object. Returns `true`, if the tag wasn't present, or `false`, if it already was (no-op).
 	 * @param {string} tag Convention: all caps, past tense.
@@ -578,15 +598,9 @@ class GameObject {
 
 		return (this.#tags.has(tag))
 	}
-	/** Serializes the object and all its components in the form of a JSON-compatible object.
-	 */
+	/** Uses the GameObject's `serializer` function to compile the object and all its components into the form of a JSON-compatible object, returning it. */
 	serialize() {
-		const data = {
-			id: this.#id,
-			tags: Array.from(this.#tags),
-			components: Array.from(this._components).map(e => e.serialize())
-		}
-		return data
+		return this.constructor.serializer(this)
 	}
 }
 class Component {
