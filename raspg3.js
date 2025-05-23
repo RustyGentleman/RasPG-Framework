@@ -699,7 +699,7 @@ class Stateful extends Component {
 	get(variable) {
 		HookModule.run('Stateful.instance.get', arguments, this)
 
-		RasPG.debug.validate.types('Stateful.instance.get', {variable: [variable, 'string']})
+		RasPG.debug.validate.type('Stateful.instance.get.variable', variable, 'string')
 		if (!(variable in this.#data))
 			return RasPG.debug.logs.elementNotRegisteredInCollection(variable, 'Stateful.instance.data')
 
