@@ -776,6 +776,15 @@ class Stateful extends Component {
 }  RasPG.registerComponent('Stateful', Stateful)
 class Stringful extends Component {
 	static reference = '_strings'
+	static serializer = function(instance) {
+		return Array.from(instance.strings)
+	}
+	static deserializer = function(data) {
+		const instance = new Stringful()
+		for (const [key, string] of data)
+			instance.set(key, string)
+		return instance
+	}
 	#strings = new Map()
 
 	get strings() {
@@ -789,8 +798,7 @@ class Stringful extends Component {
 	get(key) {
 		HookModule.run('Stringful.instance.get', arguments, this)
 
-		if (typeof(key) !== 'string')
-			throw RasPG.debug.exceptions.brokenTypeEnforcement('Stringful.instance.get.key', 'string')
+		RasPG.debug.validate.type('Stringful.instance.get.key', key, 'string')
 
 		let string = this.#strings.get(key)
 		if (typeof(string) === 'function')
@@ -805,10 +813,10 @@ class Stringful extends Component {
 	set(key, string) {
 		HookModule.run('before:Stringful.instance.set', arguments, this)
 
-		if (typeof(key) !== 'string')
-			throw RasPG.debug.exceptions.brokenTypeEnforcement('Stringful.instance.set.key', 'string')
-		if (typeof(string) !== 'string' && typeof(string) !== 'function')
-			throw RasPG.debug.exceptions.brokenTypeEnforcement('Stringful.instance.set.string', 'string | () => string')
+		RasPG.debug.validate.types('Stringful.instance.set', {
+			key: [key, 'string'],
+			string: [string, ['string | function', 'string | () => string']],
+		})
 
 		const previous = this.#strings.get(key)
 		this.#strings.set(key, string)
@@ -827,6 +835,18 @@ class Stringful extends Component {
 		})
 		HookModule.run('after:Stringful.instance.set', arguments, this)
 		return true
+	}
+	/** Defines variables in bulk. Returns the component instance back for further operations.
+	 * @param {{[key: string]: string | () => string}} options 
+	 */
+	define(options) {
+		HookModule.run('before:Stringful.instance.define', arguments, this)
+
+		for (const [key, string] of Object.entries(options))
+			this.set(key, string)
+
+		HookModule.run('after:Stringful.instance.define', arguments, this)
+		return this
 	}
 }  RasPG.registerComponent('Stringful', Stringful)
 class Perceptible extends Component {
