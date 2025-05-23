@@ -1,10 +1,54 @@
 {
+	"Exceptions": {
+		"scope": "javascript",
+		"prefix": "throw",
+		"body": [
+			"throw RasPG.debug.exceptions",
+		],
+		"description": ""
+	},
+	"Loggers": {
+		"scope": "javascript",
+		"prefix": "log",
+		"body": [
+			"RasPG.debug.logs",
+		],
+		"description": ""
+	},
+	"Validate props": {
+		"scope": "javascript",
+		"prefix": "valprops",
+		"body": [
+			"RasPG.debug.validate.props($1, $2, {",
+			"\t$3: '$4'",
+			"})",
+		],
+		"description": ""
+	},
+	"Validate types": {
+		"scope": "javascript",
+		"prefix": "valtypes",
+		"body": [
+			"RasPG.debug.validate.types('$1', {",
+			"\t$2: [$2, '$3'],",
+			"})",
+		],
+		"description": ""
+	},
+	"Validate type": {
+		"scope": "javascript",
+		"prefix": "valtype",
+		"body": [
+			"RasPG.debug.validate.type('$1', $2, '$3')",
+		],
+		"description": ""
+	},
 	"Type enforcement": {
 		"scope": "javascript",
 		"prefix": "enforce",
 		"body": [
 			"if (typeof($1) !== '$2')",
-			"\tthrow EXCEPTIONS.brokenEnforcedType('$3.$4.$1', '$2')",
+			"\tthrow RasPG.debug.exceptions.brokenEnforcedType('$3.$4.$1', '$2')",
 			"$0",
 		],
 		"description": ""
@@ -32,13 +76,10 @@
 		"scope": "javascript",
 		"prefix": "body",
 		"body": [
-			"HookModule.run('before:$1.$2', arguments, this)",
-			"",
+			"HookModule.run('before:$1.$2', arguments, this)\n\n",
 			"// Type-checking",
-			"// Guard clauses",
-			"",
-			"$0",
-			"",
+			"// Guard clauses\n\n",
+			"$0\n\n",
 			"HookModule.run('after:$1.$2', arguments, this)",
 		],
 		"description": ""

@@ -699,7 +699,7 @@ class Stateful extends Component {
 	get(variable) {
 		HookModule.run('Stateful.instance.get', arguments, this)
 
-		RasPG.debug.validate.types('Stateful.instance.get', [[variable, 'string']])
+		RasPG.debug.validate.types('Stateful.instance.get', {variable: [variable, 'string']})
 		if (!(variable in this.#data))
 			return RasPG.debug.logs.elementNotRegisteredInCollection(variable, 'Stateful.instance.data')
 
@@ -712,10 +712,10 @@ class Stateful extends Component {
 	set(variable, value) {
 		HookModule.run('before:Stateful.instance.set', arguments, this)
 
-		RasPG.debug.validate.types('Stateful.instance.set', [
-			[variable, 'string'],
-			[value, 'number | boolean | undefined'],
-		])
+		RasPG.debug.validate.types('Stateful.instance.set', {
+			variable: [variable, 'string'],
+			value: [value, 'number | boolean | undefined'],
+		})
 		if (!(variable in this.#data))
 			return RasPG.debug.logs.elementNotRegisteredInCollection(variable, 'Stateful.instance.data')
 
@@ -743,10 +743,10 @@ class Stateful extends Component {
 	create(variable, initialValue) {
 		HookModule.run('before:Stateful.instance.create', arguments, this)
 
-		RasPG.debug.validate.types('Stateful.instance.create', [
-			[variable, 'string'],
-			[initialValue, 'number | boolean | undefined'],
-		])
+		RasPG.debug.validate.types('Stateful.instance.create', {
+			variable: [variable, 'string'],
+			initialValue: [initialValue, 'number | boolean | undefined'],
+		})
 		if (variable in this.#data)
 			return false
 
@@ -882,11 +882,11 @@ class Perceptible extends Component {
 	setPerception(sense, context, description) {
 		HookModule.run('before:Perceptible.instance.setPerception', arguments, this)
 
-		RasPG.debug.validate.types('Perceptible.instance.setPerception', [
-			[sense, 'string'],
-			[context, 'string'],
-			[description, ['string | function', 'string | (sensor, target) => string']]
-		])
+		RasPG.debug.validate.types('Perceptible.instance.setPerception', {
+			sense: [sense, 'string'],
+			context: [context, 'string'],
+			description: [description, ['string | function', 'string | (sensor, target) => string']]
+		})
 
 		if (!this.#perceptions.has(sense))
 			this.#perceptions.set(sense, new Map())
@@ -932,10 +932,10 @@ class Perceptible extends Component {
 	removePerception(sense, context) {
 		HookModule.run('before:Perceptible.instance.removePerception', arguments, this)
 
-		RasPG.debug.validate.types('Perceptible.instance.removePerception', [
-			[sense, 'string'],
-			[context, 'string'],
-		])
+		RasPG.debug.validate.types('Perceptible.instance.removePerception', {
+			sense: [sense, 'string'],
+			context: [context, 'string'],
+		})
 		if (!this.#perceptions.has(sense))
 			return false
 		if (!this.#perceptions.get(sense).has(context))
@@ -954,10 +954,10 @@ class Perceptible extends Component {
 	perceive(sense, context, sensor) {
 		HookModule.run('before:Perceptible.instance.perceive', arguments, this)
 
-		RasPG.debug.validate.types('Perceptible.instance.perceive', [
-			[sense, 'string'],
-			[context, 'string'],
-		])
+		RasPG.debug.validate.types('Perceptible.instance.perceive', {
+			sense: [sense, 'string'],
+			context: [context, 'string'],
+		})
 		if (!this.#perceptions.has(sense))
 			return null
 		if (!(sensor instanceof GameObject))

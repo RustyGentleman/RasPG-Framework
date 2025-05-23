@@ -6,10 +6,14 @@
 - "if <> is already present"
 - "if already present"
 - "if an error occurred"
+- "Returns the component instance back for further operations."
 ## Return patterns
 - `true` means success
 - `null` means (object/item) not found
 - `false` means no-op or other error
+## Convention patterns
+- [no ]article, [singular|plural], all [lower|upper]case (unless proper name).
+- full sentence(s), first letter uppercase, full stop at the end.
 
 
 # Thoughts
@@ -28,6 +32,9 @@
 	- Entity chooses actions every turn based on what's available and what they know
 
 # Todo
+## All
+- refactor typechecks into using the validation functions
+- find 'let's that should be 'constant's
 ## Core
 ### GameObject
 - addComponent -> make?
@@ -38,3 +45,8 @@
 ## Stats & Combat
 ### Statful
 - stat param: resolve StatType/Stat instance to name?
+
+# Doing
+- adding bulk op methods
+- adding serialization to components
+- making the serializer and deserializer functions for GameObjects
