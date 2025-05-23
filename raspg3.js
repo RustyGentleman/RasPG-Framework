@@ -135,6 +135,8 @@ class RasPG {
 			 * @param {{ [prop: string]: string | [string, string] }} optional Optional properties and their types
 			 */
 			props(path, object, required={}, optional={}) {
+				if (typeof(object) !== 'object')
+					throw RasPG.debug.exceptions.brokenTypeEnforcement(path.match(/[^\.]+$/))
 				for (const [prop, typeSpec] of Object.entries(required)) {
 					if (!(prop in object))
 						throw RasPG.debug.exceptions.missingParameter(prop)
