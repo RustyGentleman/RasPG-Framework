@@ -832,31 +832,39 @@ class Perceptible extends Component {
 	get description() {
 		return this.parent._strings.get('sense.description')
 	}
+	get withArticle() {
+		return this.parent._strings.get('sense.withArticle')
+			|| RasPG.utils.lang.en.withArticle(this.parent._strings.get('sense.name'))
+	}
+	get plural() {
+		return this.parent._strings.get('sense.plural')
+			|| RasPG.utils.lang.en.plural(this.parent._strings.get('sense.name'))
+	}
 
 	/** Sets the name and description for an object. Both can be string or string-returning functions. Returns the component instance back for further operations.
-	 *
-	 * `name` convention: no article, all lowercase (unless proper name).
-	 *
-	 * `description` convention: sentence, first letter uppercase, full stop at the end.
-	 * @param {{ name: string | () => string, description: string | () => string, inList?: string}} options
+	 * @param {{ name: string | () => string, description: string | () => string, withArticle?: string | () => string, plural?: string | () => string}} options
 	 * @param options.name Convention: no article, singular, all lowercase (unless proper name).
 	 * @param options.description Convention: full sentence(s), first letter uppercase, full stop at the end.
-	 * @param options.inList Convention: article, singular, all lowercase (unless proper name)
+	 * @param options.withArticle Optional. Convention: article, singular, all lowercase (unless proper name)
+	 * @param options.plural Optional. Convention: no article, plural, all lowercase (unless proper name).
 	 */
 	describe(options) {
 		HookModule.run('before:Perceptible.instance.describe', arguments, this)
 
-		if (!('name' in options))
-			throw RasPG.debug.exceptions.missingParameter('name')
-		if (!('description' in options))
-			throw RasPG.debug.exceptions.missingParameter('description')
-		if (typeof(options.name) !== 'string' && typeof(options.name) !== 'function')
-			throw RasPG.debug.exceptions.brokenTypeEnforcement('Perceptible.instance.describe.options.name', 'string | () => string')
-		if (typeof(options.description) !== 'string' && typeof(options.description) !== 'function')
-			throw RasPG.debug.exceptions.brokenTypeEnforcement('Perceptible.instance.describe.options.description', 'string | () => string')
+		RasPG.debug.validate.props('Perceptible.instance.describe.options', options, {
+			name: ['string | function', 'string | () => string'],
+			description: ['string | function', 'string | () => string']
+		}, {
+			withArticle: ['string | function', 'string | () => string'],
+			plural: ['string | function', 'string | () => string'],
+		})
 
 		this.parent._strings.set('sense.name', options.name)
 		this.parent._strings.set('sense.description', options.description)
+		if ('withArticle' in options)
+			this.parent._strings.set('sense.withArticle', options.withArticle)
+		if ('plural' in options)
+			this.parent._strings.set('sense.plural', options.plural)
 
 		EventModule.emit('perceptions.descriptions.set')
 		HookModule.run('after:Perceptible.instance.describe', arguments, this)
@@ -864,19 +872,17 @@ class Perceptible extends Component {
 	}
 	/** Add a description for a given sense, in a particular context (i.e. sight direct, smell inRoom). Returns `true`, if there was a perception set for the given sense and context and it was overwritten, and `false`, if there wasn't.
 	 * @param {string} sense Convention: no spaces, camelCase.
-	 * @param {Perception} perception
 	 * @param {PerceptionContext} context
 	 * @param {string | PerceptionDescriptionFunction} description
 	 */
 	setPerception(sense, context, description) {
 		HookModule.run('before:Perceptible.instance.setPerception', arguments, this)
 
-		if (typeof(sense) !== 'string')
-			throw RasPG.debug.exceptions.brokenTypeEnforcement('Perceptible.instance.setPerception.sense', 'string')
-		if (typeof(context) !== 'string')
-			throw RasPG.debug.exceptions.brokenTypeEnforcement('Perceptible.instance.setPerception.context', 'string')
-		if (typeof(description) !== 'string' && typeof(description) !== 'function')
-			throw RasPG.debug.exceptions.brokenTypeEnforcement('Perceptible.instance.setPerception.description', 'string | () => string')
+		RasPG.debug.validate.types('Perceptible.instance.setPerception', [
+			[sense, 'string'],
+			[context, 'string'],
+			[description, ['string | function', 'string | (sensor, target) => string']]
+		])
 
 		if (!this.#perceptions.has(sense))
 			this.#perceptions.set(sense, new Map())
@@ -922,10 +928,10 @@ class Perceptible extends Component {
 	removePerception(sense, context) {
 		HookModule.run('before:Perceptible.instance.removePerception', arguments, this)
 
-		if (typeof(sense) !== 'string')
-			throw RasPG.debug.exceptions.brokenTypeEnforcement('Perceptible.instance.addPerception.sense', 'string')
-		if (typeof(context) !== 'string')
-			throw RasPG.debug.exceptions.brokenTypeEnforcement('Perceptible.instance.addPerception.context', 'string')
+		RasPG.debug.validate.types('Perceptible.instance.removePerception', [
+			[sense, 'string'],
+			[context, 'string'],
+		])
 		if (!this.#perceptions.has(sense))
 			return false
 		if (!this.#perceptions.get(sense).has(context))
@@ -944,13 +950,13 @@ class Perceptible extends Component {
 	perceive(sense, context, sensor) {
 		HookModule.run('before:Perceptible.instance.perceive', arguments, this)
 
-		if (typeof(sense) !== 'string')
-			throw RasPG.debug.exceptions.brokenTypeEnforcement('Perceptible.instance.perceive.sense', 'string')
-		if (typeof(context) !== 'string')
-			throw RasPG.debug.exceptions.brokenTypeEnforcement('Perceptible.instance.perceive.context', 'string')
+		RasPG.debug.validate.types('Perceptible.instance.perceive', [
+			[sense, 'string'],
+			[context, 'string'],
+		])
 		if (!this.#perceptions.has(sense))
 			return null
-		if (!GameObject.isPrototypeOf(sensor))
+		if (!(sensor instanceof GameObject))
 			throw RasPG.debug.exceptions.notGameObject()
 
 		const perceptions = this.#perceptions.get(sense)
