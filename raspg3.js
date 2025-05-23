@@ -60,23 +60,24 @@ class RasPG {
 			generalIDConflict: (domainPath, id) => new Error(`[RasPG] Conflicting IDs on ${domainPath}: `, id),
 			brokenTypeEnforcement: (param, type) => new Error(`[RasPG] Enforced parameter/property type broken: ${param} : ${type}`),
 			missingParameter: (param) => new Error(`[RasPG] Missing parameters: ${param}`),
+			deserializerMissingComponent: (component) => new Error(`[RasPG] Deserialization error: missing component "${component}"\nMaybe got renamed on version change, maybe from framework extension`),
 		},
 		logs: {
 			gameObjectNotFound: (objectID) => {
 				if (RasPG.config.logErrors)
-					console.error(`[RasPG] ID "${objectID}" does not presently correspond to a registered GameObject instance.`
+					console.error(`[RasPG] ID "${objectID}" does not presently correspond to a registered GameObject instance`
 						+'\nMaybe typo, or not yet created at this line')
 				return false
 			},
 			incorrectPrototype: (objectID, className, operation) => {
 				if (RasPG.config.logWarnings)
-					console.warn(`[RasPG] Object (ID "${objectID}") must be sub-class of ${className} for use in operation ${operation}`
+					console.warn(`[RasPG] Object (ID "${objectID}") must be sub-class of "${className}" for use in operation "${operation}"`
 						+'\nMaybe wrong object reference')
 				return false
 			},
 			missingRequiredComponentForOperation: (objectID, componentName, operation) => {
 				if (RasPG.config.logWarnings)
-					console.warn(`[RasPG] Object (ID "${objectID}") is missing required component (${componentName}) for operation (${operation})`
+					console.warn(`[RasPG] Object (ID "${objectID}") is missing required component "${componentName}" for operation "${operation}"`
 						+'\nMaybe wrong object, forgot to add or register component, or added wrong component (Actionable vs Agentive)')
 				return false
 			},
@@ -86,10 +87,10 @@ class RasPG {
 						+'\nMaybe typo, wrong collection, or not yet added at this line')
 				return false
 			},
-			componentMissingSerializationFunction: (element, collection) => {
+			componentMissingSerialization: (component) => {
 				if (RasPG.config.logWarnings)
-					console.warn(`[RasPG] Element "${element}" is not registered in collection "${collection}"`
-						+'\nMaybe typo, wrong collection, or not yet added at this line')
+					console.warn(`[RasPG] Component "${component}" is missing a serializer and/or a deserializer functions`
+						+'\nMaybe forgot to set, may be intentional')
 				return false
 			},
 		},
@@ -111,12 +112,12 @@ class RasPG {
 				for (const [prop, typeSpec] of Object.entries(required)) {
 					if (!(prop in object))
 						throw RasPG.debug.exceptions.missingParameter(prop)
-					this.check(path, object[prop], typeSpec)
-				}
-				for (const [prop, typeSpec] of Object.entries(optional)) {
-					if (prop in object)
+					else if (typeSpec !== '')
 						this.check(path, object[prop], typeSpec)
 				}
+				for (const [prop, typeSpec] of Object.entries(optional))
+					if (prop in object)
+						this.check(path, object[prop], typeSpec)
 			},
 			/**
 			 * Throws an exception if any of the passed variables are mistyped.
@@ -346,12 +347,13 @@ class EventModule {
 		HookModule.run('after:EventModule.emitPropertyEvents', arguments, this)
 	}
 } RasPG.registerModule('EventModule', EventModule)
-//! !!!WARNING!!! - Hooks that depend on being able to mutate a function's passed `arguments` object will not work under 'use strict', or in functions with rest arguments (`...args`) or default values (`function(param=1)`).
 class HookModule {
 	static #hooks = new Map()
 	static debug = true
 
 	/** Registers a callback to a given hook.
+	 *
+	 * !!!WARNING!!! - Hooks that depend on being able to mutate a function's passed `arguments` object will not work under 'use strict', or in functions with rest arguments (`...args`) or default values (`function(param=1)`).
 	 * @param {string} hook Convention: no spaces, camelCase.
 	 * @param {(args: Array<any>, object: Object) => void} callback
 	 */
@@ -374,6 +376,19 @@ class HookModule {
 } RasPG.registerModule('HookModule', HookModule)
 
 //# Classes
+/**
+ * @class GameObject
+ * @classdesc Game object.
+ *
+ * @prop {Stateful} _states
+ * @prop {Stringful} _strings
+ * @prop {Perceptible} _perceptions
+ * @prop {Tangible} _location
+ * @prop {Countable} _count
+ * @prop {Containing} _container
+ * @prop {Actionable} _actions
+ * @prop {Agentive} _acts
+ */
 class GameObject {
 	static #all = new Map()
 	static serializer = function(object) {
@@ -462,24 +477,24 @@ class GameObject {
 			object = this.find(id)
 			if (!object) {
 				if (options.silent !== true)
-					LOGS.gameObjectNotFound(id)
+					RasPG.debug.logs.gameObjectNotFound(id)
 				return null
 			}
 		}
 
 		if (options.proto && typeof(options.proto) === 'function' && options.proto.isPrototypeOf(object))
 			if (options.silent !== true)
-				return LOGS.incorrectPrototype(id, options.proto.name)
+				return RasPG.debug.logs.incorrectPrototype(id, options.proto.name)
 			else return false
 		if (options.components)
 			for (const component of options.components)
 				if (!object.hasComponent(component))
 					if (options.silent !== true)
-						return LOGS.missingRequiredComponentForOperation(id, component.name, options.operation || 'resolve')
+						return RasPG.debug.logs.missingRequiredComponentForOperation(id, component.name, options.operation || 'resolve')
 					else return false
 		if (options.component &&!object.hasComponent(options.component))
 			if (options.silent !== true)
-				return LOGS.missingRequiredComponentForOperation(id, options.component.name, options.operation || 'resolve')
+				return RasPG.debug.logs.missingRequiredComponentForOperation(id, options.component.name, options.operation || 'resolve')
 			else return false
 
 		return object
@@ -651,7 +666,7 @@ class Stateful extends Component {
 		if (typeof(variable) !== 'string')
 			throw RasPG.debug.exceptions.brokenTypeEnforcement('Stateful.instance.get.variable', 'string')
 		if (!(variable in this.#data))
-			return LOGS.elementNotRegisteredInCollection(variable, 'Stateful.instance.data')
+			return RasPG.debug.logs.elementNotRegisteredInCollection(variable, 'Stateful.instance.data')
 
 		return this.#data[variable]
 	}
@@ -673,7 +688,7 @@ class Stateful extends Component {
 				throw RasPG.debug.exceptions.brokenTypeEnforcement('Stateful.instance.set.value', 'number | boolean | undefined')
 		}
 		if (!(variable in this.#data))
-			return LOGS.elementNotRegisteredInCollection(variable, 'Stateful.instance.data')
+			return RasPG.debug.logs.elementNotRegisteredInCollection(variable, 'Stateful.instance.data')
 
 		const previous = this.#data[variable]
 		this.#data[variable] = value
@@ -731,6 +746,7 @@ class Stringful extends Component {
 		return new Map(this.#strings)
 	}
 
+	static nounToList
 	/** Gets the string correlated with the given key.
 	 * @param {string} key Convention: dot-separated domains, no spaces, camelCase ('en.action.jumpOn.successful')
 	 */
@@ -1163,7 +1179,7 @@ class Actionable extends Component {
 		if (typeof(action) !== 'string')
 			throw RasPG.debug.exceptions.brokenTypeEnforcement('Actionable.disable.action', 'string')
 		if (!Actionable.isAction(action))
-			return LOGS.elementNotRegisteredInCollection(action, 'Actionable.#actions')
+			return RasPG.debug.logs.elementNotRegisteredInCollection(action, 'Actionable.#actions')
 
 		this.#disabledActions.add(action)
 
@@ -1179,9 +1195,9 @@ class Actionable extends Component {
 		if (typeof(action) !== 'string')
 			throw RasPG.debug.exceptions.brokenTypeEnforcement('Actionable.enable.action', 'string')
 		if (!Actionable.isAction(action))
-			return LOGS.elementNotRegisteredInCollection(action, 'Actionable.#actions')
+			return RasPG.debug.logs.elementNotRegisteredInCollection(action, 'Actionable.#actions')
 		if (!Actionable.#disabledActions.has(action))
-			return LOGS.elementNotRegisteredInCollection(action, 'Actionable.#disabledActions')
+			return RasPG.debug.logs.elementNotRegisteredInCollection(action, 'Actionable.#disabledActions')
 
 		this.#disabledActions.delete(action)
 
@@ -1199,7 +1215,7 @@ class Actionable extends Component {
 
 		if (typeof(action) === 'string') {
 			if (!Actionable.isAction(action))
-				return LOGS.elementNotRegisteredInCollection(action, 'Actionable.#actions')
+				return RasPG.debug.logs.elementNotRegisteredInCollection(action, 'Actionable.#actions')
 			this.#actions.add(action)
 			return true
 		}
@@ -1207,7 +1223,7 @@ class Actionable extends Component {
 		if (action instanceof Array)
 			for (const name of action) {
 				if (!Actionable.isAction(action))
-					ret = LOGS.elementNotRegisteredInCollection(name, 'Actionable.#actions')
+					ret = RasPG.debug.logs.elementNotRegisteredInCollection(name, 'Actionable.#actions')
 				else this.#actions.add(name)
 			}
 
@@ -1225,7 +1241,7 @@ class Actionable extends Component {
 			throw RasPG.debug.exceptions.brokenTypeEnforcement('Actionable.instance.agentsCannot.action', 'string')
 		if (typeof(action) === 'string') {
 			if (!Actionable.isAction(action))
-				return LOGS.elementNotRegisteredInCollection(action, 'Actionable.#actions')
+				return RasPG.debug.logs.elementNotRegisteredInCollection(action, 'Actionable.#actions')
 			this.#actions.delete(action)
 			return true
 		}
@@ -1233,7 +1249,7 @@ class Actionable extends Component {
 		if (action instanceof Array)
 			for (const name of action) {
 				if (!Actionable.isAction(action))
-					ret = LOGS.elementNotRegisteredInCollection(name, 'Agentive.instance.#acts')
+					ret = RasPG.debug.logs.elementNotRegisteredInCollection(name, 'Agentive.instance.#acts')
 				else this.#actions.delete(name)
 			}
 
@@ -1296,7 +1312,7 @@ class Agentive extends Component {
 		if (typeof(act) !== 'string')
 			throw RasPG.debug.exceptions.brokenTypeEnforcement('Agentive.disable.act', 'string')
 		if (!Agentive.isAct(act))
-			return LOGS.elementNotRegisteredInCollection(act, 'Agentive.#acts')
+			return RasPG.debug.logs.elementNotRegisteredInCollection(act, 'Agentive.#acts')
 
 		this.#disabledActs.add(act)
 
@@ -1312,9 +1328,9 @@ class Agentive extends Component {
 		if (typeof(act) !== 'string')
 			throw RasPG.debug.exceptions.brokenTypeEnforcement('Agentive.enable.act', 'string')
 		if (!Agentive.isAct(act))
-			return LOGS.elementNotRegisteredInCollection(act, 'Agentive.#acts')
+			return RasPG.debug.logs.elementNotRegisteredInCollection(act, 'Agentive.#acts')
 		if (!Agentive.#disabledActs.has(act))
-			return LOGS.elementNotRegisteredInCollection(act, 'Agentive.#disabledActs')
+			return RasPG.debug.logs.elementNotRegisteredInCollection(act, 'Agentive.#disabledActs')
 
 		this.#disabledActs.delete(act)
 
@@ -1331,7 +1347,7 @@ class Agentive extends Component {
 			throw RasPG.debug.exceptions.brokenTypeEnforcement('Agentive.instance.can.act', 'string')
 		if (typeof(act) === 'string') {
 			if (!Agentive.isAction(act))
-				return LOGS.elementNotRegisteredInCollection(act, 'Agentive.instance.#acts')
+				return RasPG.debug.logs.elementNotRegisteredInCollection(act, 'Agentive.instance.#acts')
 			this.#acts.add(act)
 			return true
 		}
@@ -1339,7 +1355,7 @@ class Agentive extends Component {
 		if (act instanceof Array)
 			for (const name of act) {
 				if (!Agentive.isAction(act))
-					ret = LOGS.elementNotRegisteredInCollection(name, 'Agentive.instance.#acts')
+					ret = RasPG.debug.logs.elementNotRegisteredInCollection(name, 'Agentive.instance.#acts')
 				else this.#acts.add(name)
 			}
 
@@ -1355,7 +1371,7 @@ class Agentive extends Component {
 
 		if (typeof(act) === 'string') {
 			if (!Agentive.isAct(act))
-				return LOGS.elementNotRegisteredInCollection(act, 'Agentive.instance.#acts')
+				return RasPG.debug.logs.elementNotRegisteredInCollection(act, 'Agentive.instance.#acts')
 			this.#acts.delete(act)
 			return true
 		}
@@ -1364,7 +1380,7 @@ class Agentive extends Component {
 		if (act instanceof Array)
 			for (const name of act) {
 				if (!Agentive.isAct(act))
-					ret = LOGS.elementNotRegisteredInCollection(name, 'Agentive.instance.#acts')
+					ret = RasPG.debug.logs.elementNotRegisteredInCollection(name, 'Agentive.instance.#acts')
 				else this.#acts.delete(name)
 			}
 
@@ -1377,4 +1393,5 @@ class Agentive extends Component {
 let test = new GameObject()
 test.addComponent(Perceptible)
 test._perceptions.setDescriptions('pebble', 'a round pebble', 'A smooth, round pebble, of the sort usually found in a river.')
+// test._perceptions.describe()
 // console.log(test._components)
