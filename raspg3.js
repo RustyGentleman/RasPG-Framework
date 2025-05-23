@@ -121,11 +121,11 @@ class RasPG {
 			},
 		},
 		validate: {
-			type(path, variable, typeSpec) {
+			type(path, value, typeSpec) {
 				const [type, label] = Array.isArray(typeSpec)? [typeSpec, typeSpec] : [typeSpec, typeSpec]
-				const valid = type.split('|').some(t => typeof(variable) === t.trim())
+				const valid = type.split('|').some(t => typeof(value) === t.trim())
 				if (!valid)
-					throw RasPG.debug.exceptions.brokenTypeEnforcement(path+'.'+variable, label)
+					throw RasPG.debug.exceptions.brokenTypeEnforcement(path+'.'+value, label)
 			},
 			/**
 			 * Throws an exception if required properties are missing or mistyped, or if present optional properties are mistyped.
@@ -134,27 +134,27 @@ class RasPG {
 			 * @param {{ [prop: string]: string | [string, string] }} required Required properties and their types
 			 * @param {{ [prop: string]: string | [string, string] }} optional Optional properties and their types
 			 */
-			props(path, object, required={}, optional={}) {
+			props(path, object, required, optional={}) {
 				if (typeof(object) !== 'object')
 					throw RasPG.debug.exceptions.brokenTypeEnforcement(path.match(/[^\.]+$/))
 				for (const [prop, typeSpec] of Object.entries(required)) {
 					if (!(prop in object))
 						throw RasPG.debug.exceptions.missingParameter(prop)
 					else if (typeSpec !== '')
-						this.check(path, object[prop], typeSpec)
+						this.check(path+'.'+prop, object[prop], typeSpec)
 				}
 				for (const [prop, typeSpec] of Object.entries(optional))
 					if (prop in object)
-						this.check(path, object[prop], typeSpec)
+						this.check(path+'.'+prop, object[prop], typeSpec)
 			},
 			/**
 			 * Throws an exception if any of the passed variables are mistyped.
-			 * @param {string} path Domain(.instance).method.param
-			 * @param {Array<[any, string | [string, string]]>} checks
+			 * @param {string} path Domain(.instance).method
+			 * @param {{[param: string]: [any, string | [string, string]]}} checks
 			 */
 			types(path, checks) {
-				for (const [param, typeSpec] of checks)
-					this.check(path, param, typeSpec)
+				for (const [param, [value, typeSpec]] of Object.entries(checks))
+					this.type(path+'.'+param, value, typeSpec)
 			}
 		}
 	}
