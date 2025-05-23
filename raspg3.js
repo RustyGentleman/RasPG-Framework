@@ -52,6 +52,32 @@ class RasPG {
 		components: new Map(),
 		extensions: new Map(),
 	}
+	static utils = {
+		lang: {
+			en: {
+				/** Takes a trimmed string containing a noun and returns it with an/a, depending on first letter.
+				 * @param {string} noun
+				 */
+				withArticle(noun) {
+					return 'aeiouAEIOU'.includes(noun[0])? 'an' : 'a'
+				},
+				/** Takes a trimmed string containing a noun and returns it pluralized following basic rules.
+				 * @param {string} noun
+				 */
+				plural(noun) {
+					if (noun.endsWith('y') && !/[aeiou]y$/i.test(noun))
+						return noun.slice(0, -1) + 'ies'
+					if (noun.endsWith('s') || noun.endsWith('x') || noun.endsWith('z') || noun.endsWith('ch') || noun.endsWith('sh'))
+						return noun+'es'
+					if (noun.endsWith('f'))
+						return noun.slice(0, -1)+'ves'
+					if (noun.endsWith('fe'))
+						return noun.slice(0, -2)+'ves'
+					return noun+'s'
+				}
+			}
+		}
+	}
 	static debug = {
 		exceptions: {
 			notGameObject: () => new TypeError('[RasPG] Expected instance of GameObject or subclass'),
