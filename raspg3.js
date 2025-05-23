@@ -679,6 +679,14 @@ class Component {
 //# Components
 class Stateful extends Component {
 	static reference = '_states'
+	static serializer = function(instance) {
+		return instance.data
+	}
+	static deserializer = function(data) {
+		const instance = new Stateful()
+		instance.define(data)
+		return instance
+	}
 	#data = {}
 
 	get data() {
@@ -691,8 +699,7 @@ class Stateful extends Component {
 	get(variable) {
 		HookModule.run('Stateful.instance.get', arguments, this)
 
-		if (typeof(variable) !== 'string')
-			throw RasPG.debug.exceptions.brokenTypeEnforcement('Stateful.instance.get.variable', 'string')
+		RasPG.debug.validate.types('Stateful.instance.get', [[variable, 'string']])
 		if (!(variable in this.#data))
 			return RasPG.debug.logs.elementNotRegisteredInCollection(variable, 'Stateful.instance.data')
 
@@ -700,21 +707,15 @@ class Stateful extends Component {
 	}
 	/** Sets the value correlated with the given variable name. Returns `true`, if successful, and `false`, if the variable does not exist.
 	 * @param {string} variable Convention: no spaces, camelCase.
-	 * @param {boolean | number} value
+	 * @param {boolean | number | undefined} value
 	 */
 	set(variable, value) {
 		HookModule.run('before:Stateful.instance.set', arguments, this)
 
-		if (typeof(variable) !== 'string')
-			throw RasPG.debug.exceptions.brokenTypeEnforcement('Stateful.instance.set.variable', 'string')
-		switch (typeof(value)) {
-			case 'number':
-			case 'boolean':
-			case 'undefined':
-				break
-			default:
-				throw RasPG.debug.exceptions.brokenTypeEnforcement('Stateful.instance.set.value', 'number | boolean | undefined')
-		}
+		RasPG.debug.validate.types('Stateful.instance.set', [
+			[variable, 'string'],
+			[value, 'number | boolean | undefined'],
+		])
 		if (!(variable in this.#data))
 			return RasPG.debug.logs.elementNotRegisteredInCollection(variable, 'Stateful.instance.data')
 
@@ -737,21 +738,15 @@ class Stateful extends Component {
 	}
 	/** Creates a variable and a default value. Returns `true`, if successful, and `false`, if the variable already exists, ignoring the operation.
 	 * @param {string} variable Convention: no spaces, camelCase.
-	 * @param {boolean | number} value
+	 * @param {boolean | number | undefined} value
 	 */
 	create(variable, initialValue) {
 		HookModule.run('before:Stateful.instance.create', arguments, this)
 
-		if (typeof(variable) !== 'string')
-			throw RasPG.debug.exceptions.brokenTypeEnforcement('Stateful.instance.create.variable', 'string')
-		switch (typeof(initialValue)) {
-			case 'number':
-			case 'boolean':
-			case 'undefined':
-				break
-			default:
-				throw RasPG.debug.exceptions.brokenTypeEnforcement('Stateful.instance.set.initialValue', 'number | boolean | undefined')
-		}
+		RasPG.debug.validate.types('Stateful.instance.create', [
+			[variable, 'string'],
+			[initialValue, 'number | boolean | undefined'],
+		])
 		if (variable in this.#data)
 			return false
 
@@ -764,6 +759,15 @@ class Stateful extends Component {
 		})
 		HookModule.run('after:Stateful.instance.create', arguments, this)
 		return true
+	}
+	/** Defines (creates/sets) variables in bulk. Returns the component instance back for further operations.
+	 * @param {{overwrite?: boolean, [variable: string]: boolean | number | undefined}} options 
+	 */
+	define(options) {
+		for (const [variable, initialValue] of Object.entries(options))
+			if (!this.create(variable, initialValue) && options.overwrite === true)
+				this.set(variable, initialValue)
+		return this
 	}
 }  RasPG.registerComponent('Stateful', Stateful)
 class Stringful extends Component {
