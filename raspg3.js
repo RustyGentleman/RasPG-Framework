@@ -852,8 +852,33 @@ class Stringful extends Component {
 class Perceptible extends Component {
 	static reference = '_perceptions'
 	static requires = [Stringful]
+	/** @param {Perceptible} instance */
+	static serializer = function(instance) {
+		const data = {}
+		for (const [sense, map] of instance.perceptions.entries()) {
+			data[sense] = {}
+			for (const [context, perception] of map.entries())
+				if (typeof(perception) === 'string')
+					data[sense][context] = perception
+				else if (typeof(perception) === 'function')
+					data[sense][context] = 'SERIALIZED_FUNCTION:' + perception.toString()
+		}
+		return data
+	}
+	static deserializer = function(data) {
+		const instance = new Perceptible()
+		for (const sense in data)
+			for (const context in data[sense])
+				if (data[sense][context].startsWith('SERIALIZED_FUNCTION:'))
+					data[sense][context] = eval(data[sense][context].slice(20))
+		instance.definePerceptions(data)
+		return instance
+	}
 	#perceptions = new Map()
 
+	get perceptions() {
+		return new Map(this.#perceptions)
+	}
 	get name() {
 		return this.parent._strings.get('sense.name')
 	}
