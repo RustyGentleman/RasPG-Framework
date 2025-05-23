@@ -764,9 +764,13 @@ class Stateful extends Component {
 	 * @param {{overwrite?: boolean, [variable: string]: boolean | number | undefined}} options 
 	 */
 	define(options) {
+		HookModule.run('before:Stateful.instance.define', arguments, this)
+
 		for (const [variable, initialValue] of Object.entries(options))
 			if (!this.create(variable, initialValue) && options.overwrite === true)
 				this.set(variable, initialValue)
+
+		HookModule.run('after:Stateful.instance.define', arguments, this)
 		return this
 	}
 }  RasPG.registerComponent('Stateful', Stateful)
