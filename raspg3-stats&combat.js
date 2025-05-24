@@ -112,8 +112,7 @@ class Stat {
 	constructor(type, initialValue) {
 		HookModule.run('before:Stat.constructor', arguments, this)
 
-		if (typeof(initialValue) !== 'number')
-			throw RasPG.debug.exceptions.brokenTypeEnforcement('Stat.constructor.initialValue', 'number')
+		RasPG.debug.validate.type('Stat.constructor.initialValue', initialValue, 'number')
 		const actualType = StatType.resolve(type)
 		if (!actualType)
 			throw RasPG.debug.exceptions.brokenTypeEnforcement('Stat.constructor.type', 'StatType | string')
@@ -149,11 +148,11 @@ class Statful extends Component {
 	get(stat) {
 		HookModule.run('Statful.instance.get', arguments, this)
 
-		if (typeof(stat) !== 'string')
-			throw RasPG.debug.exceptions.brokenTypeEnforcement('Statful.get.stat', 'string')
+		RasPG.debug.validate.type('Statful.get.stat', stat, 'string')
 		if (!this.#stats.has(stat)) {
 			RasPG.debug.logs.elementNotRegisteredInCollection(variable, 'Stateful.instance.data')
 			return null
+		}
 
 		return this.#stats.get(stat)
 	}
@@ -165,10 +164,10 @@ class Statful extends Component {
 	set(stat, value) {
 		HookModule.run('before:Statful.instance.set', arguments, this)
 
-		if (typeof stat !== 'string')
-			throw RasPG.debug.exceptions.brokenTypeEnforcement('Statful.instance.set.stat', 'string')
-		if (typeof value !== 'number')
-			throw RasPG.debug.exceptions.brokenTypeEnforcement('Statful.instance.set.value', 'number')
+		RasPG.debug.validate.types('Statful.instance.set', {
+			stat: [stat, 'string'],
+			value: [value, 'number'],
+		})
 		if (!this.#stats.has(stat))
 			return false
 
@@ -193,10 +192,10 @@ class Statful extends Component {
 	modify(stat, change) {
 		HookModule.run('before:Statful.instance.modify', arguments, this)
 
-		if (typeof stat !== 'string')
-			throw RasPG.debug.exceptions.brokenTypeEnforcement('Statful.instance.modify.stat', 'string')
-		if (typeof change !== 'number')
-			throw RasPG.debug.exceptions.brokenTypeEnforcement('Statful.instance.modify.change', 'number')
+		RasPG.debug.validate.types('Statful.instance.modify', {
+			stat: [stat, 'string'],
+			change: [change, 'number'],
+		})
 		if (!this.#stats.has(stat))
 			return false
 
@@ -220,10 +219,10 @@ class Statful extends Component {
 	give(stat, initialValue) {
 		HookModule.run('before:Statful.instance.give', arguments, this)
 
-		if (typeof stat !== 'string')
-			throw RasPG.debug.exceptions.brokenTypeEnforcement('Statful.instance.give.stat', 'string')
-		if (typeof initialValue !== 'number')
-			throw RasPG.debug.exceptions.brokenTypeEnforcement('Statful.instance.give.initialValue', 'number')
+		RasPG.debug.validate.types('Statful.instance.give', {
+			stat: [stat, 'string'],
+			initialValue: [initialValue, 'number'],
+		})
 		if (this.#stats.has(stat))
 			return false
 

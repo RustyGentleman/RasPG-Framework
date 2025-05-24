@@ -17,8 +17,12 @@
 
 
 # Thoughts
+- function registry for, i.e., dynamic strings? easier (de)serialization
 ## Combat
 - levels of aggressiveness towards different types of entities? (careful vs relentless)
+- sensory perceptions tied to intent
+## Modules
+- Events: wildcard listeners (i.e. stats.*.changed)
 ## Components
 - AI -> Willful? Volitional? Deliberate?
 ## Misc
@@ -33,14 +37,26 @@
 
 # Todo
 ## All
-- refactor typechecks into using the validation functions
 - find 'let's that should be 'constant's
+- event emits consistency check
 ## Core
+- turn counter and queued events
+	- turns, tick down to 0
+	- callbacks on tick, on zero
+	- repeat boolean or counter
+	- phase (before or after turn resolution)
+- text template system
+	- separate module
+	- accrues context (room, items present, actors, targets)
+- persistence/save module
 ### GameObject
 - addComponent -> make?
 - hasComponent -> is?
+- structured objects as templates (use deserialize to create instances)
 ### Actionable
 - agents* -> actors*?
+### Containing
+- filter, weight/count capacity
 
 ## Stats & Combat
 ### Statful
@@ -49,4 +65,4 @@
 # Doing
 - adding bulk op methods
 - adding serialization to components
-- making the serializer and deserializer functions for GameObjects
+- refactor typechecks into using the validation functions
