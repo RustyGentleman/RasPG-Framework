@@ -45,7 +45,10 @@ class RasPG {
 		logErrors: true,
 	}
 	static runtime = {
-		state: {},
+		state: {
+			/** @type {'initializing' | 'serializing' | 'running'} */
+			inner: 'initializing',
+		},
 		saveModule: undefined,
 		modules: new Map(),
 		classes: new Map(),
@@ -122,6 +125,8 @@ class RasPG {
 		},
 		validate: {
 			type(path, value, typeSpec) {
+				if (!RasPG.config.parameterTypeEnforcement)
+					return
 				const [type, label] = Array.isArray(typeSpec)? [typeSpec, typeSpec] : [typeSpec, typeSpec]
 				const valid = type.split('|').some(t => typeof(value) === t.trim())
 				if (!valid)
@@ -136,16 +141,20 @@ class RasPG {
 			 */
 			props(path, object, required, optional={}) {
 				if (typeof(object) !== 'object')
-					throw RasPG.debug.exceptions.brokenTypeEnforcement(path.match(/[^\.]+$/))
+					if (RasPG.config.parameterTypeEnforcement)
+						throw RasPG.debug.exceptions.brokenTypeEnforcement(path.match(/[^\.]+$/))
+					else return false
 				for (const [prop, typeSpec] of Object.entries(required)) {
 					if (!(prop in object))
 						throw RasPG.debug.exceptions.missingParameter(prop)
-					else if (typeSpec !== '')
+					else if (RasPG.config.parameterTypeEnforcement && typeSpec !== '')
 						this.check(path+'.'+prop, object[prop], typeSpec)
 				}
+				if (!RasPG.config.parameterTypeEnforcement)
+					return
 				for (const [prop, typeSpec] of Object.entries(optional))
 					if (prop in object)
-						this.check(path+'.'+prop, object[prop], typeSpec)
+						this.type(path+'.'+prop, object[prop], typeSpec)
 			},
 			/**
 			 * Throws an exception if any of the passed variables are mistyped.
@@ -153,6 +162,8 @@ class RasPG {
 			 * @param {{[param: string]: [any, string | [string, string]]}} checks
 			 */
 			types(path, checks) {
+				if (!RasPG.config.parameterTypeEnforcement)
+					return
 				for (const [param, [value, typeSpec]] of Object.entries(checks))
 					this.type(path+'.'+param, value, typeSpec)
 			}
@@ -690,6 +701,8 @@ class Stateful extends Component {
 	#data = {}
 
 	get data() {
+		if (RasPG.runtime.state.inner == 'serializing')
+			return this.#data
 		new structuredClone(this.#data)
 	}
 
@@ -788,6 +801,8 @@ class Stringful extends Component {
 	#strings = new Map()
 
 	get strings() {
+		if (RasPG.runtime.state.inner == 'serializing')
+			return this.#strings
 		return new Map(this.#strings)
 	}
 
@@ -1044,6 +1059,8 @@ class Tangible extends Component {
 	#location
 
 	get location() {
+		if (RasPG.runtime.state.inner === 'serializing')
+			return this.#location
 		return GameObject.resolve(this.#location)
 	}
 
@@ -1142,6 +1159,8 @@ class Containing extends Component {
 	#contents = new Set()
 
 	get contents() {
+		if (RasPG.runtime.state.inner == 'serializing')
+			return this.#contents
 		return new Set(
 			Array.from(this.#contents)
 				.map(e => GameObject.resolve(e, { operation: 'Containing.instance.get.contents' }))
@@ -1219,12 +1238,16 @@ class Actionable extends Component {
 	#actions = new Set()
 
 	static get actions() {
+		if (RasPG.runtime.state.inner == 'serializing')
+			return this.#actions
 		return new Map(
 			Array.from(this.#actions)
 				.filter(([key, _]) => !this.#disabledActions.has(key))
 		)
 	}
 	get actions() {
+		if (RasPG.runtime.state.inner == 'serializing')
+			return this.#actions
 		return this.#actions.difference(Actionable.#disabledActions)
 	}
 
@@ -1352,12 +1375,16 @@ class Agentive extends Component {
 	#acts = new Set()
 
 	static get acts() {
+		if (RasPG.runtime.state.inner == 'serializing')
+			return this.#acts
 		return new Map(
 			Array.from(this.#acts)
 				.filter(([key, _]) => !this.#disabledActs.has(key))
 		)
 	}
 	get acts() {
+		if (RasPG.runtime.state.inner == 'serializing')
+			return this.#acts
 		return this.#acts.difference(Agentive.#disabledActs)
 	}
 
