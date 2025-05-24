@@ -86,7 +86,7 @@ class RasPG {
 			notComponent: () => new TypeError('[RasPG] Expected instance of Component or subclass, or their prototypes'),
 			objectIDConflict: (objectID) => new Error('[RasPG] Conflicting GameObject IDs: ', objectID),
 			generalIDConflict: (domainPath, id) => new Error(`[RasPG] Conflicting IDs on ${domainPath}: `, id),
-			brokenTypeEnforcement: (param, type) => new Error(`[RasPG] Enforced parameter/property type broken: ${param} : ${type}`),
+			brokenTypeEnforcement: (param, type, expected) => new Error(`[RasPG] Enforced parameter/property type broken: ${param} is ${type}, expected ${expected}`),
 			missingParameter: (param) => new Error(`[RasPG] Missing parameters: ${param}`),
 			deserializerMissingComponent: (component) => new Error(`[RasPG] Deserialization error: missing component "${component}"\nMaybe got renamed on version change, maybe from framework extension`),
 		},
@@ -132,7 +132,7 @@ class RasPG {
 				const isValid = acceptedTypes.some(type => checker(value, type))
 
 				if (!isValid)
-					throw RasPG.debug.exceptions.brokenTypeEnforcement(`${path}.${value}`, label)
+					throw RasPG.debug.exceptions.brokenTypeEnforcement(`${path}.${value}`, typeof(value), label)
 				return true
 
 				function checker(val, typeStr) {
@@ -155,19 +155,21 @@ class RasPG {
 			 * Throws an exception if required properties are missing or mistyped, or if present optional properties are mistyped.
 			 * @param {string} path Domain(.instance).method.param
 			 * @param {Object} object Object to be validated
-			 * @param {{ [prop: string]: string | [string, string] }} required Required properties and their types
+			 * @param {{ [prop: string]: string | [string, string] } | false} required Required properties and their types
 			 * @param {{ [prop: string]: string | [string, string] }} optional Optional properties and their types
 			 */
 			props(path, object, required, optional={}) {
+				if (required === false && object === undefined)
+					return true
 				if (typeof(object) !== 'object')
 					if (RasPG.config.parameterTypeEnforcement)
-						throw RasPG.debug.exceptions.brokenTypeEnforcement(path.match(/[^\.]+$/))
+						throw RasPG.debug.exceptions.brokenTypeEnforcement(path.match(/[^\.]+$/), typeof(object), 'object')
 					else return false
 				for (const [prop, typeSpec] of Object.entries(required)) {
 					if (!(prop in object))
 						throw RasPG.debug.exceptions.missingParameter(prop)
 					else if (RasPG.config.parameterTypeEnforcement && typeSpec !== '')
-						this.check(path+'.'+prop, object[prop], typeSpec)
+						this.type(path+'.'+prop, object[prop], typeSpec)
 				}
 				if (!RasPG.config.parameterTypeEnforcement)
 					return
@@ -264,7 +266,7 @@ class RasPG {
 //# Modules
 class EventModule {
 	static #listeners = new Map()
-	static debug = true
+	static logInfo = true
 	static _proxyHandler = {
 		set(object, property, current) {
 			const previous = object[property]
@@ -320,8 +322,8 @@ class EventModule {
 	static emit(event, data) {
 		HookModule.run('before:EventModule.emit', arguments, this)
 
-		if (this.debug)
-			console.log(`[Event - ${event} on `, data.object)
+		if (this.logInfo)
+			console.info(`[\x1b[36;1mEvent\x1b[0m - \x1b[33m${event}\x1b[0m on \x1b[93m${data.object? 'ID:'+data.object.id : 'object'}\x1b[0m]`)
 		if (!this.#listeners.has(event)) return
 		const listeners = this.#listeners.get(event)
 		for (const listener of listeners) {
@@ -409,7 +411,7 @@ class EventModule {
 } RasPG.registerModule('EventModule', EventModule)
 class HookModule {
 	static #hooks = new Map()
-	static debug = true
+	static logInfo = true
 
 	/** Registers a callback to a given hook.
 	 *
@@ -427,8 +429,8 @@ class HookModule {
 	 * @param {Array<any>} args
 	 */
 	static run(hook, args, object) {
-		if (this.debug)
-			console.log(`[Hook - ${hook} on `, object, ']')
+		if (this.logInfo)
+			console.info(`[\x1b[34;1mHook\x1b[0m - \x1b[33m${hook}\x1b[0m]`)
 		if (!this.#hooks.has(hook)) return
 		for (const callback of this.#hooks.get(hook))
 			callback(args, object)
@@ -477,23 +479,27 @@ class GameObject {
 
 	/**
 	 * @param {string} id Convention: all lowercase, no spaces.
-	 * @param {{tags: Array<string>, components: Array<Component>, watchProperties: boolean}} options
+	 * @param {{tags?: string[], components?: Array<typeof Component | Component | string>, watchProperties?: boolean}} [options]
 	 */
 	constructor(id, options) {
 		HookModule.run('before:GameObject.constructor', arguments, this)
 
+		RasPG.debug.validate.type('GameObject.constructor.id', id, 'string')
+		RasPG.debug.validate.props('GameObject.constructor.options', options, false, {
+			tags: 'string[]',
+			components: ['Array<object | function | string>', 'Array<typeof Component | Component | string>'],
+			watchProperties: 'boolean'
+		})
 		if (GameObject.#all.has(id))
 			throw RasPG.debug.exceptions.objectIDConflict(id)
-		if (typeof(id) !== 'string')
-			throw RasPG.debug.exceptions.brokenTypeEnforcement('GameObject.id', 'string')
 
 		this.#id = id
-		if (options.tags)
+		if (options?.tags)
 			for (const tag of options.tags)
 				this.tag(tag)
-		if (options.components)
+		if (options?.components)
 			this.addComponents(options.components)
-		if (options.watchProperties) {
+		if (options?.watchProperties) {
 			const proxy = new Proxy(this, EventModule._proxyHandler)
 			GameObject.#all.set(id, proxy)
 			return proxy
@@ -536,24 +542,24 @@ class GameObject {
 		if (typeof(id) === 'string') {
 			object = this.find(id)
 			if (!object) {
-				if (options.silent !== true)
+				if (options?.silent !== true)
 					RasPG.debug.logs.gameObjectNotFound(id)
 				return null
 			}
 		}
 
-		if (options.proto && typeof(options.proto) === 'function' && options.proto.isPrototypeOf(object))
-			if (options.silent !== true)
+		if (options?.proto && typeof(options.proto) === 'function' && options.proto.isPrototypeOf(object))
+			if (options?.silent !== true)
 				return RasPG.debug.logs.incorrectPrototype(id, options.proto.name)
 			else return false
-		if (options.components)
+		if (options?.components)
 			for (const component of options.components)
 				if (!object.hasComponent(component))
 					if (options.silent !== true)
 						return RasPG.debug.logs.missingRequiredComponentForOperation(id, component.name, options.operation || 'resolve')
 					else return false
-		if (options.component &&!object.hasComponent(options.component))
-			if (options.silent !== true)
+		if (options?.component &&!object.hasComponent(options.component))
+			if (options?.silent !== true)
 				return RasPG.debug.logs.missingRequiredComponentForOperation(id, options.component.name, options.operation || 'resolve')
 			else return false
 
@@ -575,12 +581,9 @@ class GameObject {
 			else
 				instance = new actualComponent()
 		}
-
-		// if (this.tags.has('PROXIED'))
-		// 	instance = new Proxy(instance, EventModule._proxyHandler)
-
 		if (this.hasComponent(instance.constructor))
 			return false
+
 		if (instance.constructor.requires.length)
 			for (const requirement of instance.constructor.requires)
 				this.addComponent(requirement)
@@ -636,8 +639,7 @@ class GameObject {
 	tag(tag) {
 		HookModule.run('before:GameObject.instance.tag', arguments, this)
 
-		if (typeof(tag) !== 'string')
-			throw RasPG.debug.exceptions.brokenTypeEnforcement('GameObject.instance.tag.tag', 'string')
+		RasPG.debug.validate.type('GameObject.instance.tag.tag', tag, 'string')
 		if (this.#tags.has(tag))
 			return false
 
@@ -652,8 +654,7 @@ class GameObject {
 	untag(tag) {
 		HookModule.run('before:GameObject.instance.untag', arguments, this)
 
-		if (typeof(tag) !== 'string')
-			throw RasPG.debug.exceptions.brokenTypeEnforcement('GameObject.instance.untag.tag', 'string')
+		RasPG.debug.validate.type('GameObject.instance.untag.tag', tag, 'string')
 		if (!this.#tags.has(tag))
 			return false
 
@@ -668,8 +669,7 @@ class GameObject {
 	isTagged(tag) {
 		HookModule.run('GameObject.instance.isTagged', arguments, this)
 
-		if (typeof(tag) !== 'string')
-			throw RasPG.debug.exceptions.brokenTypeEnforcement('GameObject.instance.isTagged.tag', 'string')
+		RasPG.debug.validate.type('GameObject.instance.isTagged.tag', tag, 'string')
 
 		return (this.#tags.has(tag))
 	}
@@ -972,7 +972,13 @@ class Perceptible extends Component {
 		if ('plural' in options)
 			this.parent._strings.set('sense.plural', options.plural)
 
-		EventModule.emit('perceptions.descriptions.set')
+		EventModule.emit('perceptions.descriptions.set', {
+			object: this.parent,
+			name: options.name,
+			description: options.description,
+			withArticle: options.withArticle || undefined,
+			plural: options.plural || undefined,
+		})
 		HookModule.run('after:Perceptible.instance.describe', arguments, this)
 		return this
 	}
@@ -1334,15 +1340,15 @@ class Actionable extends Component {
 		instance.agentsCan(data.actions)
 		return instance
 	}
-	static #actions = new Map()
+	static #allActions = new Map()
 	static #disabledActions = new Set()
 	#actions = new Set()
 
 	static get actions() {
 		if (RasPG.runtime.state.inner == 'serializing')
-			return this.#actions
+			return this.#allActions
 		return new Map(
-			Array.from(this.#actions)
+			Array.from(this.#allActions)
 				.filter(([key, _]) => !this.#disabledActions.has(key))
 		)
 	}
@@ -1367,7 +1373,7 @@ class Actionable extends Component {
 		if (this.isAction(name))
 			throw RasPG.debug.exceptions.generalIDConflict('Actionable.#actions', name)
 
-		this.#actions.set(name, {
+		this.#allActions.set(name, {
 			predicate: actionObject.predicate || undefined,
 			callback: actionObject.callback
 		})
@@ -1397,7 +1403,7 @@ class Actionable extends Component {
 			RasPG.debug.validate.props('Actionable.isAction.options', options, {}, { enabledOnly: 'boolean' })
 
 		if (options.enabledOnly === false)
-			return this.#actions.has(action)
+			return this.#allActions.has(action)
 		return this.actions.has(action)
 	}
 	/** Completely disables (or all in the array) the given action system-wide. Returns `true`, if successful, and `false`, if an error occurred.
@@ -1519,15 +1525,15 @@ class Agentive extends Component {
 		instance.can(data.acts)
 		return instance
 	}
-	static #acts = new Map()
+	static #allActs = new Map()
 	static #disabledActs = new Set()
 	#acts = new Set()
 
 	static get acts() {
 		if (RasPG.runtime.state.inner == 'serializing')
-			return this.#acts
+			return this.#allActs
 		return new Map(
-			Array.from(this.#acts)
+			Array.from(this.#allActs)
 				.filter(([key, _]) => !this.#disabledActs.has(key))
 		)
 	}
@@ -1552,7 +1558,7 @@ class Agentive extends Component {
 		if (this.isAct(name))
 			throw RasPG.debug.exceptions.generalIDConflict('Agentive.#acts', name)
 
-		this.#acts.set(name, {
+		this.#allActs.set(name, {
 			predicate: actObject.predicate || undefined,
 			callback: actObject.callback
 		})
@@ -1582,7 +1588,7 @@ class Agentive extends Component {
 			RasPG.debug.validate.props('Agentive.isAct.options', options, {}, { enabledOnly: 'boolean' })
 
 		if (options.enabledOnly === false)
-			return this.#acts.has(act)
+			return this.#allActs.has(act)
 		return this.acts.has(act)
 	}
 	/** Completely disables the given act (or all in the array) system-wide. Returns `true`, if successful, and `false`, if an error occurred.
@@ -1695,8 +1701,9 @@ class Agentive extends Component {
 	}
 }  RasPG.registerComponent('Agentive', Agentive)
 
-let test = new GameObject()
+let test = new GameObject('pebble')
 test.addComponent(Perceptible)
-test._perceptions.setDescriptions('pebble', 'a round pebble', 'A smooth, round pebble, of the sort usually found in a river.')
-// test._perceptions.describe()
-// console.log(test._components)
+test._perceptions.describe({
+	name: 'pebble',
+	description: 'A smooth, round pebble, of the sort usually found in a river.',
+})
