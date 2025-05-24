@@ -43,6 +43,7 @@ class RasPG {
 		parameterTypeEnforcement: true,
 		logWarnings: true,
 		logErrors: true,
+		serializeFunctions: false,
 	}
 	static runtime = {
 		state: {
@@ -790,12 +791,25 @@ class Stateful extends Component {
 class Stringful extends Component {
 	static reference = '_strings'
 	static serializer = function(instance) {
-		return {strings: Array.from(instance.strings)}
+		return {
+			strings: Array.from(instance.strings)
+				.map(e => {
+					if (typeof(e) === 'function')
+						if (RasPG.config.serializeFunctions)
+							return 'SERIALIZED_FUNCTION:' + e.toString()
+						else
+							return 'SKIP'
+					else return e
+				})
+		}
 	}
 	static deserializer = function(data) {
 		const instance = new Stringful()
 		for (const [key, string] of data)
-			instance.set(key, string)
+			if (string.startsWith('SERIALIZED_FUNCTION:'))
+				instance.set(key, eval(string.slice(20)))
+			else if (string !== 'SKIP')
+				instance.set(key, string)
 		return instance
 	}
 	#strings = new Map()
@@ -873,10 +887,13 @@ class Perceptible extends Component {
 		for (const [sense, map] of instance.perceptions.entries()) {
 			data[sense] = {}
 			for (const [context, perception] of map.entries())
-				if (typeof(perception) === 'string')
+				if (typeof(perception) === 'function')
+					if (RasPG.config.serializeFunctions)
+						data[sense][context] = 'SERIALIZED_FUNCTION:' + perception.toString()
+					else
+						data[sense][context] = 'SKIP'
+				else
 					data[sense][context] = perception
-				else if (typeof(perception) === 'function')
-					data[sense][context] = 'SERIALIZED_FUNCTION:' + perception.toString()
 		}
 		return data
 	}
@@ -886,6 +903,8 @@ class Perceptible extends Component {
 			for (const context in data[sense])
 				if (data[sense][context].startsWith('SERIALIZED_FUNCTION:'))
 					data[sense][context] = eval(data[sense][context].slice(20))
+				else if (data[sense][context] === 'SKIP')
+					delete data[sense][context]
 		instance.definePerceptions(data)
 		return instance
 	}
