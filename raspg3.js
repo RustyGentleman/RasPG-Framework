@@ -1333,8 +1333,8 @@ class Actionable extends Component {
 	}
 	static deserializer = function(data) {
 		const instance = new Actionable()
-		for (const action of data.actions)
-			instance.agentsCan(action)
+		instance.agentsCan(data.actions)
+		return instance
 	}
 	static #actions = new Map()
 	static #disabledActions = new Set()
@@ -1481,8 +1481,8 @@ class Agentive extends Component {
 	}
 	static deserializer = function(data) {
 		const instance = new Agentive()
-		for (const act of data.acts)
-			instance.can(act)
+		instance.can(data.acts)
+		return instance
 	}
 	static #acts = new Map()
 	static #disabledActs = new Set()
