@@ -1,15 +1,15 @@
 //# Typedefs
-/** @typedef {{calculation: (stat: Stat) => number, roundToNearest: number | false }} StatTypeOptions  */
 
 //* Registration
 if (!RasPG)
 	throw new Error('[RasPG - Stats&Combat] Framework core missing'
 		+'\nMaybe incorrect import/load order')
-RasPG.registerExtension('Stats & Combat', {
+RasPG.registerExtension('Stats&Combat', {
 	author: 'Rasutei',
 	version: '0.0.0-dev',
 	description: 'An extension including resources for combat systems, such as stats and stat modifiers (e.g. HP, attack), and status effects (e.g. buffs/debuffs). Also includes a turn-based combat system module.',
 })
+RasPG.debug.exceptions.notStatType = () => new TypeError(`[RasPG - Stats&Combat] Expected instance or name of StatType`)
 
 //# Module
 
@@ -33,15 +33,22 @@ class StatType {
 
 	/**
 	 * @param {String} name Convention: no spaces, camelCase.
-	 * @param {StatTypeOptions} options
+	 * @param {{calculation?: (stat: Stat) => number, roundToNearest?: number | false }} [options]
 	 */
 	constructor(name, options) {
 		HookModule.run('before:StatType.constructor', arguments, this)
 
+		RasPG.debug.validate.type('StatType.constructor.name', name, 'string')
+		RasPG.debug.validate.props('StatType.constructor.options', options, false, {
+			calculation: ['function', '(stat: Stat) => number'],
+			roundToNearest: 'number'
+		})
+
 		this.name = name
-		if (options.calculation)
+		if (options?.calculation)
 			this.calculation = options.calculation
-		this.roundToNearest = options.roundToNearest || false
+		if (options?.roundToNearest)
+			this.roundToNearest = options.roundToNearest
 
 		StatType.#all.set(name, this)
 
@@ -57,6 +64,9 @@ class StatType {
 	 */
 	static find(type) {
 		HookModule.run('StatType.find', arguments, this)
+
+		RasPG.debug.validate.type('StatType.find', type, 'string')
+
 		return this.#all.get(type) || null
 	}
 	/** Attempts to resolve a string to a StatType instance. Passes it back if first parameter is already one. Returns `null` if not found.
@@ -65,18 +75,18 @@ class StatType {
 	static resolve(type) {
 		HookModule.run('StatType.resolve', arguments, this)
 
-		if (type instanceof StatType)
+		if (typeof(type) === 'object' && type instanceof StatType)
 			return type
 		if (typeof(type) === 'string') {
 			const actualType = this.find(type)
 			if (!actualType) {
-				LOGS.elementNotRegisteredInCollection(type, 'StatType.#all')
+				RasPG.debug.logs.elementNotRegisteredInCollection(type, 'StatType.#all')
 				return null
 			}
 			return actualType
 		}
 
-		throw RasPG.debug.exceptions.brokenTypeEnforcement('StatType.resolve.type', 'string | StatType')
+		throw RasPG.debug.exceptions.notStatType()
 	}
 
 	/** Calculates a given stat's final value. In order: runs the given calculation, applies `toPrecision()`, then rounds to nearest, if set.
@@ -87,7 +97,7 @@ class StatType {
 
 		let netValue = +(this.calculation(stat)).toPrecision(StatType.precision)
 		if (this.roundToNearest)
-			netValue -= netValue % this.roundToNearest
+			netValue = +(netValue - (netValue % this.roundToNearest)).toPrecision(StatType.precision)
 
 		HookModule.run('after:StatType.instance.calculate', arguments, this)
 		return netValue
@@ -114,8 +124,6 @@ class Stat {
 
 		RasPG.debug.validate.type('Stat.constructor.initialValue', initialValue, 'number')
 		const actualType = StatType.resolve(type)
-		if (!actualType)
-			throw RasPG.debug.exceptions.brokenTypeEnforcement('Stat.constructor.type', 'StatType | string')
 
 		this.#type = actualType.name
 		this.base = initialValue
@@ -125,7 +133,7 @@ class Stat {
 
 	/** @return {StatType} */
 	get type() {
-		return StatType.resolve(this.#type)
+		return StatType.find(this.#type)
 	}
 	get net() {
 		return this.calculate()
@@ -150,7 +158,7 @@ class Statful extends Component {
 
 		RasPG.debug.validate.type('Statful.get.stat', stat, 'string')
 		if (!this.#stats.has(stat)) {
-			RasPG.debug.logs.elementNotRegisteredInCollection(variable, 'Stateful.instance.data')
+			RasPG.debug.RasPG.debug.logs.elementNotRegisteredInCollection(variable, 'Stateful.instance.data')
 			return null
 		}
 
