@@ -41,6 +41,7 @@
 - event emits consistency check
 - implement Countable
 - implement Combatant
+- class prop types documentation
 ## Core
 - turn counter and queued events
 	- turns, tick down to 0
@@ -58,6 +59,7 @@
 ### Actionable
 - agents* -> actors*?
 ### Containing
+- implement empty and emptyInto
 - filter, weight/count capacity
 
 
@@ -67,4 +69,3 @@
 
 # Doing
 - adding bulk op methods
-- adding filter to Containing

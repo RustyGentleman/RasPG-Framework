@@ -1361,8 +1361,11 @@ class Actionable extends Component {
 	static registerAction(name, actionObject) {
 		HookModule.run('before:Actionable.registerAction', arguments, this)
 
-		if (typeof(name) !== 'string')
-			throw RasPG.debug.exceptions.brokenTypeEnforcement('Actionable.registerAction.name', 'string')
+		RasPG.debug.validate.type('Actionable.registerAction.name', name, 'string')
+		RasPG.debug.validate.props('Actionable.registerAction.actionObject', actionObject, {
+			predicate: 'function | undefined',
+			callback: 'function'
+		})
 		if (this.isAction(name))
 			throw RasPG.debug.exceptions.generalIDConflict('Actionable.#actions', name)
 
@@ -1375,10 +1378,15 @@ class Actionable extends Component {
 	}
 	/** Returns whether the given action name is registered as an action in the component's registry, and not currently disabled.
 	 * @param {string} action Convention: no spaces, camelCase. Can be organized into domains (i.e. 'item.drop').
-	 * @param {{enabledOnly: boolean}} options Only `enabledOnly`: `true` by default; if `false`, will check regardless of disabled actions.
+	 * @param {{enabledOnly?: boolean}} options Only `enabledOnly`: `true` by default; if `false`, will check regardless of disabled actions.
 	 */
 	static isAction(action, options) {
 		HookModule.run('Actionable.isAction', arguments, this)
+
+		RasPG.debug.validate.type('Actionable.isAction.action', action, 'string')
+		if (options)
+			RasPG.debug.validate.props('Actionable.isAction.options', options, {}, { enabledOnly: 'boolean' })
+
 		if (options.enabledOnly === false)
 			return this.#actions.has(action)
 		return this.actions.has(action)
@@ -1389,8 +1397,7 @@ class Actionable extends Component {
 	static disable(action) {
 		HookModule.run('before:Actionable.disable', arguments, this)
 
-		if (typeof(action) !== 'string')
-			throw RasPG.debug.exceptions.brokenTypeEnforcement('Actionable.disable.action', 'string')
+		RasPG.debug.validate.type('Actionable.disable.action', action, 'string')
 		if (!Actionable.isAction(action))
 			return RasPG.debug.logs.elementNotRegisteredInCollection(action, 'Actionable.#actions')
 
@@ -1405,8 +1412,7 @@ class Actionable extends Component {
 	static enable(action) {
 		HookModule.run('before:Actionable.enable', arguments, this)
 
-		if (typeof(action) !== 'string')
-			throw RasPG.debug.exceptions.brokenTypeEnforcement('Actionable.enable.action', 'string')
+		RasPG.debug.validate.type('Actionable.enable.action', action, 'string')
 		if (!Actionable.isAction(action))
 			return RasPG.debug.logs.elementNotRegisteredInCollection(action, 'Actionable.#actions')
 		if (!Actionable.#disabledActions.has(action))
@@ -1418,14 +1424,12 @@ class Actionable extends Component {
 		return true
 	}
 	/** Adds the action name (or all in the array) to the object's allowed actions. Returns `true`, if successful, or `false`, if (at least one) error occurs.
-	 * @param {string | Array<string>} action Convention: no spaces, camelCase. Can be organized into domains (i.e. 'item.drop').
+	 * @param {string | string[]} action Convention: no spaces, camelCase. Can be organized into domains (i.e. 'item.drop').
 	 */
 	agentsCan(action) {
 		HookModule.run('before:Actionable.instance.agentsCan', arguments, this)
 
-		if (typeof(action) !== 'string')
-			throw RasPG.debug.exceptions.brokenTypeEnforcement('Actionable.instance.agentsCan.action', 'string')
-
+		RasPG.debug.validate.type('Actionable.instance.agentsCan.action', action, ['string | string[]'])
 		if (typeof(action) === 'string') {
 			if (!Actionable.isAction(action))
 				return RasPG.debug.logs.elementNotRegisteredInCollection(action, 'Actionable.#actions')
@@ -1445,13 +1449,12 @@ class Actionable extends Component {
 		return ret
 	}
 	/** Removes the action name (or all in the array) from the object's allowed actions. Returns `true`, if action(s) were present and removed, or `false`, if (at least one) already wasn't.
-	 * @param {string | Array<string>} action Convention: no spaces, camelCase. Can be organized into domains (i.e. 'item.drop').
+	 * @param {string | string[]} action Convention: no spaces, camelCase. Can be organized into domains (i.e. 'item.drop').
 	 */
 	agentsCannot(action) {
 		HookModule.run('before:Actionable.instance.agentsCannot', arguments, this)
 
-		if (typeof(action) !== 'string')
-			throw RasPG.debug.exceptions.brokenTypeEnforcement('Actionable.instance.agentsCannot.action', 'string')
+		RasPG.debug.validate.type('Actionable.instance.agentsCannot.action', action, ['string | string[]'])
 		if (typeof(action) === 'string') {
 			if (!Actionable.isAction(action))
 				return RasPG.debug.logs.elementNotRegisteredInCollection(action, 'Actionable.#actions')
@@ -1462,7 +1465,7 @@ class Actionable extends Component {
 		if (action instanceof Array)
 			for (const name of action) {
 				if (!Actionable.isAction(action))
-					ret = RasPG.debug.logs.elementNotRegisteredInCollection(name, 'Agentive.instance.#acts')
+					ret = RasPG.debug.logs.elementNotRegisteredInCollection(name, 'Agentive.#actions')
 				else this.#actions.delete(name)
 			}
 
@@ -1506,8 +1509,11 @@ class Agentive extends Component {
 	static registerAct(name, actObject) {
 		HookModule.run('before:Agentive.registerAct', arguments, this)
 
-		if (typeof(act) !== 'string')
-			throw RasPG.debug.exceptions.brokenTypeEnforcement('Agentive.registerAct.act', 'string')
+		RasPG.debug.validate.type('Agentive.registerAct.name', name, 'string')
+		RasPG.debug.validate.props('Agentive.registerAct.actObject', actObject, {
+			predicate: 'function | undefined',
+			callback: 'function'
+		})
 		if (this.isAct(name))
 			throw RasPG.debug.exceptions.generalIDConflict('Agentive.#acts', name)
 
@@ -1523,7 +1529,12 @@ class Agentive extends Component {
 	 * @param {{enabledOnly: boolean}} options Only `enabledOnly`: `true` by default; if `false`, will check regardless of disabled actions.
 	 */
 	static isAct(act, options) {
-		HookModule.run('Actionable.isAct', arguments, this)
+		HookModule.run('Agentive.isAct', arguments, this)
+
+		RasPG.debug.validate.type('Agentive.isAct.act', act, 'string')
+		if (options)
+			RasPG.debug.validate.props('Agentive.isAct.options', options, {}, { enabledOnly: 'boolean' })
+
 		if (options.enabledOnly === false)
 			return this.#acts.has(act)
 		return this.acts.has(act)
@@ -1534,8 +1545,7 @@ class Agentive extends Component {
 	static disable(act) {
 		HookModule.run('before:Agentive.disable', arguments, this)
 
-		if (typeof(act) !== 'string')
-			throw RasPG.debug.exceptions.brokenTypeEnforcement('Agentive.disable.act', 'string')
+		RasPG.debug.validate.type('Agentive.disable.act', act, 'string')
 		if (!Agentive.isAct(act))
 			return RasPG.debug.logs.elementNotRegisteredInCollection(act, 'Agentive.#acts')
 
@@ -1550,8 +1560,7 @@ class Agentive extends Component {
 	static enable(act) {
 		HookModule.run('before:Agentive.enable', arguments, this)
 
-		if (typeof(act) !== 'string')
-			throw RasPG.debug.exceptions.brokenTypeEnforcement('Agentive.enable.act', 'string')
+		RasPG.debug.validate.type('Agentive.enable.act', act, 'string')
 		if (!Agentive.isAct(act))
 			return RasPG.debug.logs.elementNotRegisteredInCollection(act, 'Agentive.#acts')
 		if (!Agentive.#disabledActs.has(act))
@@ -1568,19 +1577,19 @@ class Agentive extends Component {
 	can(act) {
 		HookModule.run('before:Agentive.instance.can', arguments, this)
 
-		if (typeof(act) !== 'string')
-			throw RasPG.debug.exceptions.brokenTypeEnforcement('Agentive.instance.can.act', 'string')
+		RasPG.debug.validate.type('Agentive.instance.can.act', act, ['string | string[]'])
+
 		if (typeof(act) === 'string') {
-			if (!Agentive.isAction(act))
-				return RasPG.debug.logs.elementNotRegisteredInCollection(act, 'Agentive.instance.#acts')
+			if (!Agentive.isAct(act))
+				return RasPG.debug.logs.elementNotRegisteredInCollection(act, 'Agentive.#acts')
 			this.#acts.add(act)
 			return true
 		}
 		let ret = true
 		if (act instanceof Array)
 			for (const name of act) {
-				if (!Agentive.isAction(act))
-					ret = RasPG.debug.logs.elementNotRegisteredInCollection(name, 'Agentive.instance.#acts')
+				if (!Agentive.isAct(act))
+					ret = RasPG.debug.logs.elementNotRegisteredInCollection(name, 'Agentive.#acts')
 				else this.#acts.add(name)
 			}
 
@@ -1594,18 +1603,19 @@ class Agentive extends Component {
 	cannot(act) {
 		HookModule.run('before:Agentive.instance.cannot', arguments, this)
 
+		RasPG.debug.validate.type('Agentive.instance.cannot.act', act, ['string | string[]'])
+
 		if (typeof(act) === 'string') {
 			if (!Agentive.isAct(act))
-				return RasPG.debug.logs.elementNotRegisteredInCollection(act, 'Agentive.instance.#acts')
+				return RasPG.debug.logs.elementNotRegisteredInCollection(act, 'Agentive.#acts')
 			this.#acts.delete(act)
 			return true
 		}
-
 		let ret = true
 		if (act instanceof Array)
 			for (const name of act) {
 				if (!Agentive.isAct(act))
-					ret = RasPG.debug.logs.elementNotRegisteredInCollection(name, 'Agentive.instance.#acts')
+					ret = RasPG.debug.logs.elementNotRegisteredInCollection(name, 'Agentive.#acts')
 				else this.#acts.delete(name)
 			}
 
