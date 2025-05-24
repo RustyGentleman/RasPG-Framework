@@ -85,7 +85,7 @@ class StatType {
 	calculate(stat) {
 		HookModule.run('before:StatType.instance.calculate', arguments, this)
 
-		let netValue = +(this.calculation(stat)).toPrecision(6)
+		let netValue = +(this.calculation(stat)).toPrecision(StatType.precision)
 		if (this.roundToNearest)
 			netValue -= netValue % this.roundToNearest
 
@@ -151,7 +151,8 @@ class Statful extends Component {
 
 		if (typeof(stat) !== 'string')
 			throw RasPG.debug.exceptions.brokenTypeEnforcement('Statful.get.stat', 'string')
-		if (!this.#stats.has(stat))
+		if (!this.#stats.has(stat)) {
+			RasPG.debug.logs.elementNotRegisteredInCollection(variable, 'Stateful.instance.data')
 			return null
 
 		return this.#stats.get(stat)
