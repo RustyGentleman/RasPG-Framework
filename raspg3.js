@@ -1392,36 +1392,56 @@ class Actionable extends Component {
 		return this.actions.has(action)
 	}
 	/** Completely disables the given action system-wide. Returns `true`, if successful, and `false`, if an error occurred.
-	 * @param {string} action
+	 * @param {string | string[]} action
 	 */
 	static disable(action) {
 		HookModule.run('before:Actionable.disable', arguments, this)
 
-		RasPG.debug.validate.type('Actionable.disable.action', action, 'string')
-		if (!Actionable.isAction(action))
-			return RasPG.debug.logs.elementNotRegisteredInCollection(action, 'Actionable.#actions')
+		RasPG.debug.validate.type('Actionable.disable.action', action, 'string | string[]')
 
-		this.#disabledActions.add(action)
+		let ret = true
+		if (typeof(action) === 'string')
+			if (!Actionable.isAction(action))
+				return RasPG.debug.logs.elementNotRegisteredInCollection(action, 'Actionable.#actions')
+			else
+				this.#disabledActions.add(action)
+		else if (action instanceof Array)
+			for (const name of action)
+				if (!Actionable.isAction(name))
+					ret = RasPG.debug.logs.elementNotRegisteredInCollection(name, 'Actionable.#actions')
+				else
+					this.#disabledActions.add(name)
 
 		HookModule.run('after:Actionable.disable', arguments, this)
-		return true
+		return ret
 	}
 	/** Enables the given action system-wide. Returns `true`, if successful, and `false`, if an error occurred.
-	 * @param {string} action
+	 * @param {string | string[]} action
 	 */
 	static enable(action) {
 		HookModule.run('before:Actionable.enable', arguments, this)
 
-		RasPG.debug.validate.type('Actionable.enable.action', action, 'string')
-		if (!Actionable.isAction(action))
-			return RasPG.debug.logs.elementNotRegisteredInCollection(action, 'Actionable.#actions')
-		if (!Actionable.#disabledActions.has(action))
-			return RasPG.debug.logs.elementNotRegisteredInCollection(action, 'Actionable.#disabledActions')
+		RasPG.debug.validate.type('Actionable.enable.action', action, 'string | string[]')
 
-		this.#disabledActions.delete(action)
+		let ret = true
+		if (typeof(action) === 'string')
+			if (!Actionable.isAction(action))
+				return RasPG.debug.logs.elementNotRegisteredInCollection(action, 'Actionable.#actions')
+			else if (!Actionable.#disabledActions.has(action))
+				return RasPG.debug.logs.elementNotRegisteredInCollection(action, 'Actionable.#disabledActions')
+			else
+				this.#disabledActions.delete(action)
+		else if (action instanceof Array)
+			for (const name of action)
+				if (!Actionable.isAction(name))
+					ret = RasPG.debug.logs.elementNotRegisteredInCollection(name, 'Actionable.#actions')
+				else if (!Actionable.#disabledActions.has(name))
+					return RasPG.debug.logs.elementNotRegisteredInCollection(name, 'Actionable.#disabledActions')
+				else
+					this.#disabledActions.delete(name)
 
 		HookModule.run('after:Actionable.enable', arguments, this)
-		return true
+		return ret
 	}
 	/** Adds the action name (or all in the array) to the object's allowed actions. Returns `true`, if successful, or `false`, if (at least one) error occurs.
 	 * @param {string | string[]} action Convention: no spaces, camelCase. Can be organized into domains (i.e. 'item.drop').
@@ -1430,21 +1450,24 @@ class Actionable extends Component {
 		HookModule.run('before:Actionable.instance.agentsCan', arguments, this)
 
 		RasPG.debug.validate.type('Actionable.instance.agentsCan.action', action, ['string | string[]'])
-		if (typeof(action) === 'string') {
+
+		let ret = true
+		if (typeof(action) === 'string')
 			if (!Actionable.isAction(action))
 				return RasPG.debug.logs.elementNotRegisteredInCollection(action, 'Actionable.#actions')
-			this.#actions.add(action)
-			return true
-		}
-		let ret = true
-		if (action instanceof Array)
-			for (const name of action) {
+			else {
+				this.#actions.add(action)
+				EventModule.emit('actions.added', { object: this.parent, action })
+			}
+		else if (action instanceof Array)
+			for (const name of action)
 				if (!Actionable.isAction(action))
 					ret = RasPG.debug.logs.elementNotRegisteredInCollection(name, 'Actionable.#actions')
-				else this.#actions.add(name)
-			}
+				else {
+					this.#actions.add(name)
+					EventModule.emit('actions.added', { object: this.parent, action: name })
+				}
 
-		EventModule.emit('actions.added', { object: this.parent, action: name })
 		HookModule.run('after:Actionable.instance.agentsCan', arguments, this)
 		return ret
 	}
@@ -1455,21 +1478,24 @@ class Actionable extends Component {
 		HookModule.run('before:Actionable.instance.agentsCannot', arguments, this)
 
 		RasPG.debug.validate.type('Actionable.instance.agentsCannot.action', action, ['string | string[]'])
-		if (typeof(action) === 'string') {
+
+		let ret = true
+		if (typeof(action) === 'string')
 			if (!Actionable.isAction(action))
 				return RasPG.debug.logs.elementNotRegisteredInCollection(action, 'Actionable.#actions')
-			this.#actions.delete(action)
-			return true
-		}
-		let ret = true
-		if (action instanceof Array)
-			for (const name of action) {
-				if (!Actionable.isAction(action))
-					ret = RasPG.debug.logs.elementNotRegisteredInCollection(name, 'Agentive.#actions')
-				else this.#actions.delete(name)
+			else {
+				this.#actions.delete(action)
+				EventModule.emit('actions.removed', { object: this.parent, action })
 			}
+		else if (action instanceof Array)
+			for (const name of action)
+				if (!Actionable.isAction(action))
+					ret = RasPG.debug.logs.elementNotRegisteredInCollection(name, 'Actionable.#actions')
+				else {
+					this.#actions.delete(name)
+					EventModule.emit('actions.removed', { object: this.parent, action: name })
+				}
 
-		EventModule.emit('actions.removed', { object: this.parent, action: name })
 		HookModule.run('after:Actionable.instance.agentsCannot', arguments, this)
 		return ret
 	}
@@ -1540,36 +1566,56 @@ class Agentive extends Component {
 		return this.acts.has(act)
 	}
 	/** Completely disables the given act system-wide. Returns `true`, if successful, and `false`, if an error occurred.
-	 * @param {string} act
+	 * @param {string | string[]} act
 	 */
 	static disable(act) {
 		HookModule.run('before:Agentive.disable', arguments, this)
 
-		RasPG.debug.validate.type('Agentive.disable.act', act, 'string')
-		if (!Agentive.isAct(act))
-			return RasPG.debug.logs.elementNotRegisteredInCollection(act, 'Agentive.#acts')
+		RasPG.debug.validate.type('Agentive.disable.act', act, 'string | string[]')
 
-		this.#disabledActs.add(act)
+		let ret = true
+		if (typeof(act) === 'string')
+			if (!Agentive.isAct(act))
+				return RasPG.debug.logs.elementNotRegisteredInCollection(act, 'Agentive.#acts')
+			else
+				this.#disabledActs.add(act)
+		else if (act instanceof Array)
+			for (const name of act)
+				if (!Agentive.isAct(name))
+					ret = RasPG.debug.logs.elementNotRegisteredInCollection(name, 'Agentive.#acts')
+				else
+					this.#disabledActs.add(name)
 
 		HookModule.run('after:Agentive.disable', arguments, this)
-		return true
+		return ret
 	}
 	/** Reenables the given act system-wide. Returns `true`, if successful, and `false`, if an error occurred.
-	 * @param {string} act
+	 * @param {string | string[]} act
 	 */
 	static enable(act) {
 		HookModule.run('before:Agentive.enable', arguments, this)
 
-		RasPG.debug.validate.type('Agentive.enable.act', act, 'string')
-		if (!Agentive.isAct(act))
-			return RasPG.debug.logs.elementNotRegisteredInCollection(act, 'Agentive.#acts')
-		if (!Agentive.#disabledActs.has(act))
-			return RasPG.debug.logs.elementNotRegisteredInCollection(act, 'Agentive.#disabledActs')
+		RasPG.debug.validate.type('Agentive.enable.act', act, 'string | string[]')
 
-		this.#disabledActs.delete(act)
+		let ret = true
+		if (typeof(act) === 'string')
+			if (!Agentive.isAct(act))
+				return RasPG.debug.logs.elementNotRegisteredInCollection(act, 'Agentive.#acts')
+			else if (!Agentive.#disabledActs.has(act))
+				return RasPG.debug.logs.elementNotRegisteredInCollection(act, 'Agentive.#disabledActs')
+			else
+				this.#disabledActs.delete(act)
+		else if (act instanceof Array)
+			for (const name of act)
+				if (!Agentive.isAct(name))
+					ret = RasPG.debug.logs.elementNotRegisteredInCollection(name, 'Agentive.#acts')
+				else if (!Agentive.#disabledActs.has(name))
+					return RasPG.debug.logs.elementNotRegisteredInCollection(name, 'Agentive.#disabledActs')
+				else
+					this.#disabledActs.delete(name)
 
 		HookModule.run('after:Agentive.enable', arguments, this)
-		return true
+		return ret
 	}
 	/** Adds the act name (or all in the array) to the object's allowed acts. Returns `true`, if successful, or `false`, if (at least one) error occurs.
 	 * @param {string | Array<string>} act Convention: no spaces, camelCase. Can be organized into domains (i.e. 'item.drop').
@@ -1579,21 +1625,23 @@ class Agentive extends Component {
 
 		RasPG.debug.validate.type('Agentive.instance.can.act', act, ['string | string[]'])
 
-		if (typeof(act) === 'string') {
+		let ret = true
+		if (typeof(act) === 'string')
 			if (!Agentive.isAct(act))
 				return RasPG.debug.logs.elementNotRegisteredInCollection(act, 'Agentive.#acts')
-			this.#acts.add(act)
-			return true
-		}
-		let ret = true
-		if (act instanceof Array)
-			for (const name of act) {
+			else {
+				this.#acts.add(act)
+				EventModule.emit('acts.added', { object: this.parent, act })
+			}
+		else if (act instanceof Array)
+			for (const name of act)
 				if (!Agentive.isAct(act))
 					ret = RasPG.debug.logs.elementNotRegisteredInCollection(name, 'Agentive.#acts')
-				else this.#acts.add(name)
-			}
+				else {
+					this.#acts.add(name)
+					EventModule.emit('acts.added', { object: this.parent, act: name })
+				}
 
-		EventModule.emit('acts.added', { object: this.parent, act: name })
 		HookModule.run('after:Agentive.instance.can', arguments, this)
 		return ret
 	}
@@ -1605,21 +1653,23 @@ class Agentive extends Component {
 
 		RasPG.debug.validate.type('Agentive.instance.cannot.act', act, ['string | string[]'])
 
-		if (typeof(act) === 'string') {
+		let ret = true
+		if (typeof(act) === 'string')
 			if (!Agentive.isAct(act))
 				return RasPG.debug.logs.elementNotRegisteredInCollection(act, 'Agentive.#acts')
-			this.#acts.delete(act)
-			return true
-		}
-		let ret = true
-		if (act instanceof Array)
-			for (const name of act) {
+			else {
+				this.#acts.delete(act)
+				EventModule.emit('acts.removed', { object: this.parent, act })
+			}
+		else if (act instanceof Array)
+			for (const name of act)
 				if (!Agentive.isAct(act))
 					ret = RasPG.debug.logs.elementNotRegisteredInCollection(name, 'Agentive.#acts')
-				else this.#acts.delete(name)
-			}
+				else {
+					this.#acts.delete(name)
+					EventModule.emit('acts.removed', { object: this.parent, act: name })
+				}
 
-		EventModule.emit('acts.removed', { object: this.parent, act: name })
 		HookModule.run('after:Agentive.instance.cannot', arguments, this)
 		return ret
 	}
