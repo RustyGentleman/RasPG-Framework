@@ -18,6 +18,7 @@
 
 # Thoughts
 - function registry for, i.e., dynamic strings? easier (de)serialization
+- snippet pack for pseudo-language coding?
 ## Combat
 - levels of aggressiveness towards different types of entities? (careful vs relentless)
 - sensory perceptions tied to intent
@@ -68,4 +69,3 @@
 - stat param: resolve StatType/Stat instance to name?
 
 # Doing
-- adding bulk op methods

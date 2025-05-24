@@ -247,6 +247,19 @@ class Statful extends Component {
 		HookModule.run('after:Statful.instance.give', arguments, this)
 		return true
 	}
+	/** Gives the object new stats, or sets them, in bulk. Returns the component instance back for further operations.
+	 * @param {{[stat: string]: number}} options
+	 */
+	define(options) {
+		HookModule.run('before:Statful.instance.define', arguments, this)
+
+		for (const [stat, initialValue] of Object.entries(options))
+			if (!this.set(stat, initialValue))
+				this.give(stat, initialValue)
+
+		HookModule.run('after:Statful.instance.define', arguments, this)
+		return this
+	}
 } RasPG.registerComponent('Statful', Statful)
 class Combatant extends Component {
 	static reference = '_combat'
