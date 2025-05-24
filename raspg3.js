@@ -82,8 +82,8 @@ class RasPG {
 	}
 	static debug = {
 		exceptions: {
-			notGameObject: () => new TypeError('[RasPG] Expected instance of GameObject or subclass'),
-			notComponent: () => new TypeError('[RasPG] Expected instance of Component or subclass, or their prototypes'),
+			notGameObject: () => new TypeError('[RasPG] Expected id or instance of GameObject or subclass'),
+			notComponent: () => new TypeError('[RasPG] Expected name, instance or prototype of Component or subclass'),
 			objectIDConflict: (objectID) => new Error('[RasPG] Conflicting GameObject IDs: ', objectID),
 			generalIDConflict: (domainPath, id) => new Error(`[RasPG] Conflicting IDs on ${domainPath}: `, id),
 			brokenTypeEnforcement: (param, type, expected) => new Error(`[RasPG] Enforced parameter/property type broken: ${param} is ${type}, expected ${expected}`),
