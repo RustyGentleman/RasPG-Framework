@@ -790,7 +790,7 @@ class Stateful extends Component {
 class Stringful extends Component {
 	static reference = '_strings'
 	static serializer = function(instance) {
-		return Array.from(instance.strings)
+		return {strings: Array.from(instance.strings)}
 	}
 	static deserializer = function(data) {
 		const instance = new Stringful()
@@ -1056,6 +1056,14 @@ class Perceptible extends Component {
 }  RasPG.registerComponent('Perceptible', Perceptible)
 class Tangible extends Component {
 	static reference = '_location'
+	static serializer = function(instance) {
+		return {location: instance.location}
+	}
+	static deserializer = function(data) {
+		const instance = new Tangible()
+		instance.moveTo(data.location, false)
+		return instance
+	}
 	#location
 
 	get location() {
@@ -1140,6 +1148,14 @@ class Tangible extends Component {
 class Countable extends Component {
 	static reference = '_count'
 	static requires = [Tangible]
+	static serializer = function(instance) {
+		return {count: instance.count}
+	}
+	static deserializer = function(data) {
+		const instance = new Countable()
+		instance.add(data.count)
+		return instance
+	}
 	#count = 0
 
 	get count() {}
@@ -1156,6 +1172,15 @@ class Countable extends Component {
 class Containing extends Component {
 	static reference = '_container'
 	static requires = [Tangible]
+	static serializer = function(instance) {
+		return {contents: Array.from(instance.contents)}
+	}
+	static deserializer = function(data) {
+		const instance = new Containing()
+		for (const id of data.contents)
+			instance.add(id)
+		return instance
+	}
 	#contents = new Set()
 
 	get contents() {
@@ -1233,6 +1258,14 @@ class Containing extends Component {
 class Actionable extends Component {
 	static reference = '_actions'
 	static requires = [Tangible]
+	static serializer = function(instance) {
+		return {actions: Array.from(instance.actions)}
+	}
+	static deserializer = function(data) {
+		const instance = new Actionable()
+		for (const action of data.actions)
+			instance.agentsCan(action)
+	}
 	static #actions = new Map()
 	static #disabledActions = new Set()
 	#actions = new Set()
@@ -1370,6 +1403,14 @@ class Actionable extends Component {
 }  RasPG.registerComponent('Actionable', Actionable)
 class Agentive extends Component {
 	static reference = '_acts'
+	static serializer = function(instance) {
+		return {acts: Array.from(instance.acts)}
+	}
+	static deserializer = function(data) {
+		const instance = new Agentive()
+		for (const act of data.acts)
+			instance.can(act)
+	}
 	static #acts = new Map()
 	static #disabledActs = new Set()
 	#acts = new Set()
