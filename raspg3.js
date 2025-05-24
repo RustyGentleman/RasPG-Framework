@@ -1032,6 +1032,7 @@ class Perceptible extends Component {
 		}
 
 		HookModule.run('after:Perceptible.instance.definePerceptions', arguments, this)
+		return this
 	}
 	/** Removes the perception from a given sense and context. Returns `true`, if successful, and `false`, if either the sense or context didn't exist.
 	 * @param {string} sense Convention: no spaces, camelCase.
@@ -1380,7 +1381,7 @@ class Actionable extends Component {
 
 		HookModule.run('after:Actionable.registerAction', arguments, this)
 	}
-	/** Registers action objects in to the component's registry in bulk. Each object is comprised of a callback (representing the action itself), and, optionally, a predicate (representing requirements for the action to be performed).
+	/** Registers action objects in to the component's registry in bulk. Each object is comprised of a callback (representing the action itself), and, optionally, a predicate (representing requirements for the action to be performed). Returns the component instance back for further operations.
 	 * @param {{[name: string]: {callback: (agent: GameObject) => (void | string), predicate?: (agent: GameObject) => boolean}}} options 
 	 */
 	static defineActions(options) {
@@ -1390,6 +1391,7 @@ class Actionable extends Component {
 			this.registerAction(name, actionObject)
 
 		HookModule.run('after:Actionable.defineActions', arguments, this)
+		return this
 	}
 	/** Returns whether the given action name is registered as an action in the component's registry, and not currently disabled.
 	 * @param {string} action Convention: no spaces, camelCase. Can be organized into domains (i.e. 'item.drop').
@@ -1564,7 +1566,7 @@ class Agentive extends Component {
 
 		HookModule.run('after:Agentive.registerAct', arguments, this)
 	}
-	/** Registers act objects in to the component's registry in bulk. Each object is comprised of a callback (representing the act itself), and, optionally, a predicate (representing requirements for the act to be performed).
+	/** Registers act objects in to the component's registry in bulk. Each object is comprised of a callback (representing the act itself), and, optionally, a predicate (representing requirements for the act to be performed). Returns the component instance back for further operations.
 	 * @param {{[name: string]: {callback: (agent: GameObject) => (void | string), predicate?: (agent: GameObject) => boolean}}} options 
 	 */
 	static defineActs(options) {
@@ -1574,6 +1576,7 @@ class Agentive extends Component {
 			this.registerAct(name, actObject)
 
 		HookModule.run('after:Agentive.defineActs', arguments, this)
+		return this
 	}
 	/** Returns whether the given act name is registered as an act in the component's registry, and not currently disabled.
 	 * @param {string} act Convention: no spaces, camelCase. Can be organized into domains (i.e. 'item.drop').
@@ -1699,9 +1702,21 @@ class Agentive extends Component {
 	}
 }  RasPG.registerComponent('Agentive', Agentive)
 
-let test = new GameObject('pebble')
-test.addComponent(Perceptible)
-test._perceptions.describe({
-	name: 'pebble',
-	description: 'A smooth, round pebble, of the sort usually found in a river.',
-})
+if (typeof module !== 'undefined')
+	module.exports = {
+		RasPG,
+		GameObject,
+		Component,
+
+		EventModule,
+		HookModule,
+
+		Stateful,
+		Stringful,
+		Perceptible,
+		Tangible,
+		Countable,
+		Containing,
+		Actionable,
+		Agentive,
+	}
