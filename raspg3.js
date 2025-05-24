@@ -128,10 +128,30 @@ class RasPG {
 			type(path, value, typeSpec) {
 				if (!RasPG.config.parameterTypeEnforcement)
 					return
-				const [type, label] = Array.isArray(typeSpec)? [typeSpec, typeSpec] : [typeSpec, typeSpec]
-				const valid = type.split('|').some(t => typeof(value) === t.trim())
-				if (!valid)
-					throw RasPG.debug.exceptions.brokenTypeEnforcement(path+'.'+value, label)
+
+				const [typeString, label] = Array.isArray(typeSpec) ? typeSpec : [typeSpec, typeSpec]
+				const acceptedTypes = typeString.split('|').map(t => t.trim())
+				const isValid = acceptedTypes.some(type => checker(value, type))
+
+				if (!isValid)
+					throw RasPG.debug.exceptions.brokenTypeEnforcement(`${path}.${value}`, label)
+				return true
+
+				function checker(val, typeStr) {
+					typeStr = typeStr.trim()
+
+					if (typeStr.endsWith('[]'))
+						typeStr = `Array<${typeStr.slice(0, -2)}>`
+
+					const arrayMatch = typeStr.match(/^Array<(.+)>$/)
+					if (arrayMatch) {
+						if (!Array.isArray(val))
+							return false
+						const innerTypes = arrayMatch[1].split('|').map(t => t.trim())
+						return val.every(el => innerTypes.some(inner => checker(el, inner)))
+					}
+					return typeof(val) === typeStr
+				}
 			},
 			/**
 			 * Throws an exception if required properties are missing or mistyped, or if present optional properties are mistyped.
@@ -156,6 +176,7 @@ class RasPG {
 				for (const [prop, typeSpec] of Object.entries(optional))
 					if (prop in object)
 						this.type(path+'.'+prop, object[prop], typeSpec)
+				return true
 			},
 			/**
 			 * Throws an exception if any of the passed variables are mistyped.
@@ -167,6 +188,7 @@ class RasPG {
 					return
 				for (const [param, [value, typeSpec]] of Object.entries(checks))
 					this.type(path+'.'+param, value, typeSpec)
+				return true
 			}
 		}
 	}
