@@ -6,8 +6,6 @@
 /** @typedef {{context: PerceptionContext, description: string | PerceptionDescriptionFunction}} Perception */
 /** @typedef {string | 'superficial' | 'direct' | 'inContainer' | 'inRoom' | 'adjacentRoom' | 'onObject'} PerceptionContext */
 /** @typedef {(sensor: GameObject, target: GameObject) => string} PerceptionDescriptionFunction */
-/** @typedef {{predicate: (agent: GameObject) => boolean, callback: (agent: GameObject) => (void | string)}} Action */
-/** @typedef {{predicate: (object: GameObject) => boolean, callback: (object: GameObject) => (void | string)}} Act */
 
 //# Prototype mutations
 if (!Set.prototype.find) {
@@ -1354,18 +1352,18 @@ class Actionable extends Component {
 		return this.#actions.difference(Actionable.#disabledActions)
 	}
 
-	/** Registers an Action object into the component's registry.
+	/** Registers an action object into the component's registry. The object is comprised of a callback (representing the action itself), and, optionally, a predicate (representing requirements for the action to be performed).
 	 * @param {string} name Convention: no spaces, camelCase. Can be organized into domains (i.e. 'item.drop').
-	 * @param {Action} actionObject
+	 * @param {{callback: (agent?: GameObject) => (void | string), predicate?: (agent?: GameObject) => boolean}} actionObject
 	 */
 	static registerAction(name, actionObject) {
 		HookModule.run('before:Actionable.registerAction', arguments, this)
 
 		RasPG.debug.validate.type('Actionable.registerAction.name', name, 'string')
-		RasPG.debug.validate.props('Actionable.registerAction.actionObject', actionObject, {
-			predicate: 'function | undefined',
-			callback: 'function'
-		})
+		RasPG.debug.validate.props('Actionable.registerAction.actionObject', actionObject,
+			{ callback: ['function', '(agent?: GameObject) => (void | string)'] },
+			{ predicate: ['function', '(agent?: GameObject) => boolean'] }
+		)
 		if (this.isAction(name))
 			throw RasPG.debug.exceptions.generalIDConflict('Actionable.#actions', name)
 
@@ -1375,6 +1373,17 @@ class Actionable extends Component {
 		})
 
 		HookModule.run('after:Actionable.registerAction', arguments, this)
+	}
+	/** Registers action objects in to the component's registry in bulk. Each object is comprised of a callback (representing the action itself), and, optionally, a predicate (representing requirements for the action to be performed).
+	 * @param {{[name: string]: {callback: (agent: GameObject) => (void | string), predicate?: (agent: GameObject) => boolean}}} options 
+	 */
+	static defineActions(options) {
+		HookModule.run('before:Actionable.defineActions', arguments, this)
+
+		for (const [name, actionObject] in Object.entries(options))
+			this.registerAction(name, actionObject)
+
+		HookModule.run('after:Actionable.defineActions', arguments, this)
 	}
 	/** Returns whether the given action name is registered as an action in the component's registry, and not currently disabled.
 	 * @param {string} action Convention: no spaces, camelCase. Can be organized into domains (i.e. 'item.drop').
@@ -1528,18 +1537,18 @@ class Agentive extends Component {
 		return this.#acts.difference(Agentive.#disabledActs)
 	}
 
-	/** Registers an Act object into the component's registry.
+	/** Registers an Act object into the component's registry. The object is comprised of a callback (representing the act itself), and, optionally, a predicate (representing requirements for the act to be performed).
 	 * @param {string} name Convention: no spaces, camelCase. Can be organized into domains (i.e. 'item.drop').
-	 * @param {Act} actObject
+	 * @param {{callback: (target?: GameObject) => (void | string), predicate?: (target?: GameObject) => boolean}} actObject
 	 */
 	static registerAct(name, actObject) {
 		HookModule.run('before:Agentive.registerAct', arguments, this)
 
 		RasPG.debug.validate.type('Agentive.registerAct.name', name, 'string')
-		RasPG.debug.validate.props('Agentive.registerAct.actObject', actObject, {
-			predicate: 'function | undefined',
-			callback: 'function'
-		})
+		RasPG.debug.validate.props('Agentive.registerAct.actObject', actObject,
+			{ callback: ['function', '(target?: GameObject) => (void | string)'] },
+			{ predicate: ['function', '(target?: GameObject) => boolean'] }
+		)
 		if (this.isAct(name))
 			throw RasPG.debug.exceptions.generalIDConflict('Agentive.#acts', name)
 
@@ -1549,6 +1558,17 @@ class Agentive extends Component {
 		})
 
 		HookModule.run('after:Agentive.registerAct', arguments, this)
+	}
+	/** Registers act objects in to the component's registry in bulk. Each object is comprised of a callback (representing the act itself), and, optionally, a predicate (representing requirements for the act to be performed).
+	 * @param {{[name: string]: {callback: (agent: GameObject) => (void | string), predicate?: (agent: GameObject) => boolean}}} options 
+	 */
+	static defineActs(options) {
+		HookModule.run('before:Agentive.defineActs', arguments, this)
+
+		for (const [name, actObject] in Object.entries(options))
+			this.registerAct(name, actObject)
+
+		HookModule.run('after:Agentive.defineActs', arguments, this)
 	}
 	/** Returns whether the given act name is registered as an act in the component's registry, and not currently disabled.
 	 * @param {string} act Convention: no spaces, camelCase. Can be organized into domains (i.e. 'item.drop').
