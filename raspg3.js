@@ -1264,10 +1264,10 @@ class Containing extends Component {
 			return actualObject
 		if (this.has(actualObject))
 			return false
-		if (options.ignoreFilter !== true && this.#filter && !this.#filter(actualObject))
+		if (options?.ignoreFilter !== true && this.#filter && !this.#filter(actualObject))
 			return false
 
-		if (options.passOn !== false)
+		if (options?.passOn !== false)
 			actualObject._tangible.moveTo(this.parent, false)
 		this.#contents.add(actualObject.id)
 
@@ -1399,10 +1399,9 @@ class Actionable extends Component {
 		HookModule.run('Actionable.isAction', arguments, this)
 
 		RasPG.debug.validate.type('Actionable.isAction.action', action, 'string')
-		if (options)
-			RasPG.debug.validate.props('Actionable.isAction.options', options, {}, { enabledOnly: 'boolean' })
+		RasPG.debug.validate.props('Actionable.isAction.options', options, false, { enabledOnly: 'boolean' })
 
-		if (options.enabledOnly === false)
+		if (options?.enabledOnly === false)
 			return this.#allActions.has(action)
 		return this.actions.has(action)
 	}
@@ -1584,8 +1583,7 @@ class Agentive extends Component {
 		HookModule.run('Agentive.isAct', arguments, this)
 
 		RasPG.debug.validate.type('Agentive.isAct.act', act, 'string')
-		if (options)
-			RasPG.debug.validate.props('Agentive.isAct.options', options, {}, { enabledOnly: 'boolean' })
+		RasPG.debug.validate.props('Agentive.isAct.options', options, false, { enabledOnly: 'boolean' })
 
 		if (options.enabledOnly === false)
 			return this.#allActs.has(act)
