@@ -1391,7 +1391,7 @@ class Actionable extends Component {
 			return this.#actions.has(action)
 		return this.actions.has(action)
 	}
-	/** Completely disables the given action system-wide. Returns `true`, if successful, and `false`, if an error occurred.
+	/** Completely disables (or all in the array) the given action system-wide. Returns `true`, if successful, and `false`, if an error occurred.
 	 * @param {string | string[]} action
 	 */
 	static disable(action) {
@@ -1415,7 +1415,7 @@ class Actionable extends Component {
 		HookModule.run('after:Actionable.disable', arguments, this)
 		return ret
 	}
-	/** Enables the given action system-wide. Returns `true`, if successful, and `false`, if an error occurred.
+	/** Enables the given action (or all in the array) system-wide. Returns `true`, if successful, and `false`, if an error occurred.
 	 * @param {string | string[]} action
 	 */
 	static enable(action) {
@@ -1565,7 +1565,7 @@ class Agentive extends Component {
 			return this.#acts.has(act)
 		return this.acts.has(act)
 	}
-	/** Completely disables the given act system-wide. Returns `true`, if successful, and `false`, if an error occurred.
+	/** Completely disables the given act (or all in the array) system-wide. Returns `true`, if successful, and `false`, if an error occurred.
 	 * @param {string | string[]} act
 	 */
 	static disable(act) {
@@ -1589,7 +1589,7 @@ class Agentive extends Component {
 		HookModule.run('after:Agentive.disable', arguments, this)
 		return ret
 	}
-	/** Reenables the given act system-wide. Returns `true`, if successful, and `false`, if an error occurred.
+	/** Reenables the given act (or all in the array) system-wide. Returns `true`, if successful, and `false`, if an error occurred.
 	 * @param {string | string[]} act
 	 */
 	static enable(act) {
