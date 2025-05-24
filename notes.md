@@ -39,6 +39,8 @@
 ## All
 - find 'let's that should be 'constant's
 - event emits consistency check
+- implement Countable
+- implement Combatant
 ## Core
 - turn counter and queued events
 	- turns, tick down to 0
@@ -58,11 +60,11 @@
 ### Containing
 - filter, weight/count capacity
 
+
 ## Stats & Combat
 ### Statful
 - stat param: resolve StatType/Stat instance to name?
 
 # Doing
 - adding bulk op methods
-- adding serialization to components
-- refactor typechecks into using the validation functions
+- adding filter to Containing

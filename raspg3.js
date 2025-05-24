@@ -881,7 +881,6 @@ class Stringful extends Component {
 class Perceptible extends Component {
 	static reference = '_perceptions'
 	static requires = [Stringful]
-	/** @param {Perceptible} instance */
 	static serializer = function(instance) {
 		const data = {}
 		for (const [sense, map] of instance.perceptions.entries()) {
@@ -1107,7 +1106,7 @@ class Tangible extends Component {
 			this.location?._container.remove(this.parent, false)
 		this.#location = location.id
 		if (passOn !== false)
-			this.location._container.add(this.parent, false)
+			this.location._container.add(this.parent, {passOn: false})
 
 		EventModule.emitPropertyEvents({
 			object: this.parent,
@@ -1179,11 +1178,15 @@ class Countable extends Component {
 
 	get count() {}
 
-	/** Adds a given amount to the object's count. Rounds amount to lowest integer.
+	/** Sets the object's count. Rounds to closest integer
+	 * @param {number} count
+	 */
+	set(count) {}
+	/** Adds a given amount to the object's count. Rounds to closest integer.
 	 * @param {number} amount
 	 */
 	add(amount) {}
-	/** Subtracts a given amount from the object's count. Rounds amount to lowest integer.
+	/** Subtracts a given amount from the object's count. Rounds to closest integer.
 	 * @param {number} amount
 	 */
 	subtract(amount) {}
@@ -1192,15 +1195,22 @@ class Containing extends Component {
 	static reference = '_container'
 	static requires = [Tangible]
 	static serializer = function(instance) {
-		return {contents: Array.from(instance.contents)}
+		const data = {contents: Array.from(instance.contents)}
+		if (RasPG.config.serializeFunctions)
+			data.filter = instance.filter.toString()
+		return data
 	}
 	static deserializer = function(data) {
 		const instance = new Containing()
+		if (data.filter)
+			instance.setFilter(eval(data.filter))
 		for (const id of data.contents)
 			instance.add(id)
 		return instance
 	}
 	#contents = new Set()
+	/** @type {(GameObject) => boolean} */
+	#filter
 
 	get contents() {
 		if (RasPG.runtime.state.inner == 'serializing')
@@ -1210,25 +1220,32 @@ class Containing extends Component {
 				.map(e => GameObject.resolve(e, { operation: 'Containing.instance.get.contents' }))
 		)
 	}
+	get filter() {
+		return this.#filter
+	}
 
-	/** Adds an object to the container. Returns `true`, if successful, `null`, if the object isn't found, and `false`, if the object was already present.
+	/** Adds an object to the container. Returns `true`, if successful, `null`, if the object isn't found, and `false`, if the object was already present or is not allowed into the container.
 	 * @param {GameObject | string} object
-	 * @param {boolean} passOn INTERNAL USE: if anything but `false`, will call the current (if existent) container's `remove` method and new container's `add` method.
+	 * @param {{ignoreFilter?: boolean, passOn?: boolean}} options
+	 * @param {boolean} options.ignoreFilter If set to `true`, object will be added to container regardless of a present filter.
+	 * @param {boolean} options.passOn INTERNAL USE: if anything but `false`, will call the current (if existent) container's `remove` method and new container's `add` method.
 	 */
-	add(object, passOn) {
+	add(object, options) {
 		HookModule.run('before:Container.instance.add', arguments, this)
-
-		if (this.has(actualObject))
-			return false
 
 		const actualObject = GameObject.resolve(object, { component: Tangible, operation: 'Container.instance.add' })
 		if (!actualObject)
 			return actualObject
-		if (passOn !== false)
+		if (this.has(actualObject))
+			return false
+		if (options.ignoreFilter !== true && this.#filter && !this.#filter(actualObject))
+			return false
+
+		if (options.passOn !== false)
 			actualObject._tangible.moveTo(this.parent, false)
 		this.#contents.add(actualObject.id)
 
-		EventModule.emit('container.addd', {
+		EventModule.emit('container.added', {
 			object: this.parent,
 			item: actualObject
 		})
@@ -1258,6 +1275,18 @@ class Containing extends Component {
 		})
 		HookModule.run('after:Container.instance.remove', arguments, this)
 		return true
+	}
+	/** Sets a filter function that dictates what kinds of GameObjects the container allows.
+	 * @param {(GameObject) => boolean} predicate
+	 */
+	setFilter(predicate) {
+		HookModule.run('before:Containing.instance.setFilter', arguments, this)
+
+		RasPG.debug.validate.type('Containing.instance.setFilter.predicate', predicate, ['function', '(GameObject) => boolean'])
+
+		this.#filter = predicate
+
+		HookModule.run('after:Containing.instance.setFilter', arguments, this)
 	}
 	emptyInto(container) {}
 	empty() {}
