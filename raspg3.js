@@ -1141,6 +1141,8 @@ class Tangible extends Component {
 	get location() {
 		if (RasPG.runtime.state.inner === 'serializing')
 			return this.#location
+		if (this.#location === undefined)
+			return undefined
 		return GameObject.resolve(this.#location)
 	}
 
