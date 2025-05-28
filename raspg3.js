@@ -1049,12 +1049,12 @@ class Perceptible extends Component {
 		for (const sense in options) {
 			if (typeof(sense) !== 'string')
 				throw RasPG.debug.exceptions.brokenEnforcedType('Perceptible.instance.definePerceptions.sense', 'string')
-			for (const context in sense) {
+			for (const context in options[sense]) {
 				if (typeof(context) !== 'string')
 					throw RasPG.debug.exceptions.brokenEnforcedType('Perceptible.instance.definePerceptions.context', 'string')
-				if (typeof(sense[context]) !== 'string' && typeof(sense[context]) !== 'function')
+				if (typeof(options[sense][context]) !== 'string' && typeof(options[sense][context]) !== 'function')
 					throw RasPG.debug.exceptions.brokenEnforcedType('Perceptible.instance.definePerceptions.sense[context]', 'string | () => string')
-				this.setPerception(sense, context, sense[context])
+				this.setPerception(sense, context, options[sense][context])
 			}
 		}
 
