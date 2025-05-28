@@ -1388,7 +1388,7 @@ class Actionable extends Component {
 	get actions() {
 		if (RasPG.runtime.state.inner == 'serializing')
 			return this.#actions
-		return this.#actions.difference(Actionable.#disabledActions)
+		return new Set([...this.#actions].filter(action => !Actionable.#disabledActions.has(action)))
 	}
 
 	/** Registers an action object into the component's registry. The object is comprised of a callback (representing the action itself), and, optionally, a predicate (representing requirements for the action to be performed).
@@ -1573,7 +1573,7 @@ class Agentive extends Component {
 	get acts() {
 		if (RasPG.runtime.state.inner == 'serializing')
 			return this.#acts
-		return this.#acts.difference(Agentive.#disabledActs)
+		return new Set([...this.#acts].filter(act => !Agentive.#disabledActs.has(act)))
 	}
 
 	/** Registers an Act object into the component's registry. The object is comprised of a callback (representing the act itself), and, optionally, a predicate (representing requirements for the act to be performed).
