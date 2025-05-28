@@ -128,27 +128,51 @@ class RasPG {
 					return
 
 				const [typeString, label] = Array.isArray(typeSpec) ? typeSpec : [typeSpec, typeSpec]
-				const acceptedTypes = typeString.split('|').map(t => t.trim())
+				const acceptedTypes = splitTopLevelTypes(typeString)
 				const isValid = acceptedTypes.some(type => checker(value, type))
 
 				if (!isValid)
-					throw RasPG.debug.exceptions.brokenTypeEnforcement(`${path}.${value}`, typeof(value), label)
+					throw RasPG.debug.exceptions.brokenTypeEnforcement(`${path}.${value}`, typeof value, label)
 				return true
 
 				function checker(val, typeStr) {
 					typeStr = typeStr.trim()
 
 					if (typeStr.endsWith('[]'))
-						typeStr = `Array<${typeStr.slice(0, -2)}>`
+						typeStr = `Array<${typeStr.slice(0, -2)}>` // normalize shorthand
 
 					const arrayMatch = typeStr.match(/^Array<(.+)>$/)
 					if (arrayMatch) {
 						if (!Array.isArray(val))
 							return false
-						const innerTypes = arrayMatch[1].split('|').map(t => t.trim())
+						const innerTypes = splitTopLevelTypes(arrayMatch[1])
 						return val.every(el => innerTypes.some(inner => checker(el, inner)))
 					}
-					return typeof(val) === typeStr
+
+					return typeof val === typeStr
+				}
+
+				function splitTopLevelTypes(typeStr) {
+					const types = []
+					let depth = 0
+					let buffer = ''
+
+					for (let i = 0; i < typeStr.length; i++) {
+						const char = typeStr[i]
+
+						if (char === '<') depth++
+						else if (char === '>') depth--
+						else if (char === '|' && depth === 0) {
+							types.push(buffer.trim())
+							buffer = ''
+							continue
+						}
+
+						buffer += char
+					}
+
+					if (buffer) types.push(buffer.trim())
+					return types
 				}
 			},
 			/**
