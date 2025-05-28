@@ -43,6 +43,7 @@
 - implement Countable
 - implement Combatant
 - class prop types documentation
+- figure out how to implement locale into development
 ## Core
 - turn counter and queued events
 	- turns, tick down to 0
@@ -70,3 +71,4 @@
 - stat param: resolve StatType/Stat instance to name?
 
 # Doing
+- implementing Countable-dependent stuff in Perceptible?
