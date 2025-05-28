@@ -522,7 +522,7 @@ class GameObject {
 			for (const tag of options.tags)
 				this.tag(tag)
 		if (options?.components)
-			this.addComponents(options.components)
+			this.addComponents(...options.components)
 		if (options?.watchProperties) {
 			const proxy = new Proxy(this, EventModule._proxyHandler)
 			GameObject.#all.set(id, proxy)
@@ -561,9 +561,9 @@ class GameObject {
 		HookModule.run('GameObject.resolve', arguments, this)
 		let object
 
-		if (typeof(id) === 'object' && !this.isPrototypeOf(id))
-			throw RasPG.debug.exceptions.notGameObject
-		if (typeof(id) === 'string') {
+		if (typeof(id) === 'object' && id instanceof this)
+			object = id
+		else if (typeof(id) === 'string') {
 			object = this.find(id)
 			if (!object) {
 				if (options?.silent !== true)
@@ -571,6 +571,9 @@ class GameObject {
 				return null
 			}
 		}
+
+		if (!object)
+			throw RasPG.debug.exceptions.notGameObject()
 
 		if (options?.proto && typeof(options.proto) === 'function' && options.proto.isPrototypeOf(object))
 			if (options?.silent !== true)
@@ -580,11 +583,11 @@ class GameObject {
 			for (const component of options.components)
 				if (!object.hasComponent(component))
 					if (options.silent !== true)
-						return RasPG.debug.logs.missingRequiredComponentForOperation(id, component.name, options.operation || 'resolve')
+						return RasPG.debug.logs.missingRequiredComponentForOperation(object.id, component.name, options.operation || 'resolve')
 					else return false
 		if (options?.component &&!object.hasComponent(options.component))
 			if (options?.silent !== true)
-				return RasPG.debug.logs.missingRequiredComponentForOperation(id, options.component.name, options.operation || 'resolve')
+				return RasPG.debug.logs.missingRequiredComponentForOperation(object.id, options.component.name, options.operation || 'resolve')
 			else return false
 
 		return object
@@ -655,7 +658,7 @@ class GameObject {
 		if (!actualComponent)
 			throw RasPG.debug.exceptions.notComponent()
 
-		return this._components.has(actualComponent.constructor.name)
+		return this._components.has(actualComponent.prototype.constructor.name)
 	}
 	/** Adds a tag to the object. Returns `true`, if the tag wasn't present, or `false`, if it already was (no-op).
 	 * @param {string} tag Convention: all caps, past tense.
@@ -719,7 +722,7 @@ class Component {
 			return component
 		if (typeof(component) === 'string' && this.isPrototypeOf(RasPG.runtime.components.get(component)))
 			return RasPG.runtime.components.get(component)
-		if (typeof(component) === 'object' && this.isPrototypeOf(component.constructor))
+		if (typeof(component) === 'object' && (component instanceof this))
 			return component.constructor
 
 		throw RasPG.debug.exceptions.notComponent()
@@ -1148,16 +1151,18 @@ class Tangible extends Component {
 	moveTo(location, passOn) {
 		HookModule.run('before:Tangible.instance.moveTo', arguments, this)
 
-		location = GameObject.resolve(location, { component: Container, operation: 'Tangible.instance.moveTo' })
+		location = GameObject.resolve(location, { component: Containing, operation: 'Tangible.instance.moveTo' })
 		if (!location)
 			return location
 
 		const previous = this.#location
 		if (passOn !== false)
-			this.location?._container.remove(this.parent, false)
+			if (this.#location !== undefined)
+				this.location?._container.remove(this.parent, false)
 		this.#location = location.id
 		if (passOn !== false)
-			this.location._container.add(this.parent, {passOn: false})
+			if (this.#location !== undefined)
+				this.location?._container.add(this.parent, {passOn: false})
 
 		EventModule.emitPropertyEvents({
 			object: this.parent,
@@ -1211,7 +1216,7 @@ class Tangible extends Component {
 		if (!actualObject)
 			return null
 
-		return actualObject._tangible.location === this.location
+		return actualObject._location.location === this.location
 	}
 }  RasPG.registerComponent('Tangible', Tangible)
 class Countable extends Component {
@@ -1293,7 +1298,7 @@ class Containing extends Component {
 			return false
 
 		if (options?.passOn !== false)
-			actualObject._tangible.moveTo(this.parent, false)
+			actualObject._location.moveTo(this.parent, false)
 		this.#contents.add(actualObject.id)
 
 		EventModule.emit('container.added', {
@@ -1310,14 +1315,15 @@ class Containing extends Component {
 	remove(object, passOn) {
 		HookModule.run('before:Container.instance.remove', arguments, this)
 
+		const actualObject = GameObject.resolve(object, { component: Tangible, operation: 'Container.instance.remove' })
+
+		if (!actualObject)
+			return actualObject
 		if (!this.has(actualObject))
 			return false
 
-		const actualObject = GameObject.resolve(object, { component: Tangible, operation: 'Container.instance.remove' })
-		if (!actualObject)
-			return actualObject
 		if (passOn !== false)
-			actualObject._tangible.removeFromWorld(false)
+			actualObject._location.removeFromWorld(false)
 		this.#contents.delete(actualObject.id)
 
 		EventModule.emit('container.removed', {
@@ -1612,7 +1618,7 @@ class Agentive extends Component {
 		RasPG.debug.validate.type('Agentive.isAct.act', act, 'string')
 		RasPG.debug.validate.props('Agentive.isAct.options', options, false, { enabledOnly: 'boolean' })
 
-		if (options.enabledOnly === false)
+		if (options?.enabledOnly === false)
 			return this.#allActs.has(act)
 		return this.acts.has(act)
 	}
@@ -1725,6 +1731,16 @@ class Agentive extends Component {
 		return ret
 	}
 }  RasPG.registerComponent('Agentive', Agentive)
+
+const gameObject = new GameObject('pebble', {
+	components: [Perceptible]
+})
+gameObject._perceptions.definePerceptions({
+	sight: {
+		inContainer: 'a round pebble',
+		direct: "It is rounded and smooth, like it's been rolled along a riverbed for a long time."
+	},
+})
 
 if (typeof module !== 'undefined')
 	module.exports = {

@@ -47,6 +47,7 @@
 - turn counter and queued events
 	- turns, tick down to 0
 	- callbacks on tick, on zero
+		- maybe allow predicate dictating necessary conditions for on zero to tick, allowing it to be delayed until possible (tick counter goes negative)
 	- repeat boolean or counter
 	- phase (before or after turn resolution)
 - text template system
