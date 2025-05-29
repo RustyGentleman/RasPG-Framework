@@ -96,6 +96,8 @@ class RasPG {
 				+'\nMaybe typo or forgot to pass'),
 			deserializerMissingComponent: (component) => new Error(`[RasPG][deserializerMissingComponent] Deserialization error: missing component "${component}"`
 				+'\nMaybe got renamed on version change, maybe from framework extension'),
+			missingRequiredContext: (label) => new Error(`[RasPG][missingRequiredContext] Missing required context: "${label}"`
+				+'\nMaybe wrong label, pushed to wrong label, or forgot to push'),
 		},
 		logs: {
 			gameObjectNotFound: (objectID) => {
@@ -466,6 +468,135 @@ class HookModule {
 			callback(args, object)
 	}
 } RasPG.registerModule('HookModule', HookModule)
+class ContextModule {
+	static #context = {}
+	static #gatherers = new Map()
+
+	static get context() {
+		const ret = {}
+		for (const label in this.#context)
+			ret[label] = Array.from(this.#context[label])
+		return ret
+	}
+	static get gatherers() {
+		return new Map(this.#gatherers)
+	}
+
+	/** Pushes the given objects to the context under their given labels.
+	 * @example
+	 * ContextModule.push({
+	 * 	agent: currentAgent,
+	 * 	action: currentAction,
+	 * 	target: actionTarget
+	 * })
+	 * // Code where pushed context-objects are relevant
+	 * ContextModule.pop(['agent', 'action', 'target'])
+	 * @param {{[label: string]: object}} objects
+	 */
+	static push(objects) {
+		HookModule.run('before:ContextModule.push', arguments, this)
+
+		RasPG.debug.validate.type('ContextModule.push.objects', objects, 'object')
+
+		for (const label in objects) {
+			if (!(label in this.#context))
+				this.#context[label] = []
+			this.#context[label].unshift(objects[label])
+		}
+
+		HookModule.run('after:ContextModule.push', arguments, this)
+	}
+	/** Pops objects under the given labels from the context. Returns the number of failures (trying to pop empty context stack).
+	 * @example
+	 * ContextModule.push({
+	 * 	agent: currentAgent,
+	 * 	action: currentAction,
+	 * 	target: actionTarget
+	 * })
+	 * // Code where pushed context-objects are relevant
+	 * ContextModule.pop(['agent', 'action', 'target'])
+	 * @param {string[]} labels
+	 */
+	static pop(labels) {
+		HookModule.run('before:ContextModule.pop', arguments, this)
+
+		RasPG.debug.validate.type('ContextModule.push.labels', labels, 'Array<string>')
+
+		let ret = 0
+		for (const label of labels) {
+			if (label in this.#context)
+				this.#context[label].shift()
+			else
+				ret++
+			if (this.#context[label].length === 0)
+				delete this.#context[label]
+		}
+
+		HookModule.run('after:ContextModule.pop', arguments, this)
+		return ret
+	}
+	/** Returns the object under the given label from the context.
+	 * @param {string} label
+	 * @param {{required: boolean}} options
+	 * @param {boolean} options.required If set strictly to `true`, will throw a missingRequiredContext exception if the requested context-object stack is empty.
+	 */
+	static get(label, options) {
+		HookModule.run('ContextModule.get', arguments, this)
+
+		RasPG.debug.validate.type('ContextModule.label', label, 'string')
+		RasPG.debug.validate.props('ContextModule.options', options, false, {
+			required: 'boolean'
+		})
+
+		if (label in this.#context)
+			return this.#context[label].at(0)
+		else if (options?.required === true)
+			throw RasPG.debug.exceptions.missingRequiredContext(label)
+		else
+			return undefined
+	}
+	/** Registers a gatherer. Gatherers attempt to automatically gather context from objects passed to the `gatherFrom()` method.
+	 * @param {string} name Convention: should reflect the label returned by the gatherer, for ease of skipping.
+	 * @param {{appliesTo: (any) => boolean, callback: (any) => {[label: string]: object}}} gatherer
+	 * @param {(any) => boolean} gatherer.appliesTo A filter that dictates what objects the gatherer should apply to.
+	 * @param {(any) => {[label: string]: object}} gatherer.callback Actual gatherer function. Must return a pushable object.
+	 */
+	static registerGatherer(name, gatherer) {
+		HookModule.run('before:ContextModule.registerGatherer', arguments, this)
+
+		RasPG.debug.validate.type('ContextModule.registerGatherer.name', name, 'string')
+		RasPG.debug.validate.props('ContextModule.registerGatherer.gatherer', gatherer, {
+			appliesTo: ['function', '(any) => boolean'],
+			callback: ['function', '(any) => {[label: string]: object}']
+		})
+
+		this.#gatherers.set(name, gatherer)
+
+		HookModule.run('after:ContextModule.registerGatherer', arguments, this)
+	}
+	/** Gathers context from the object using applicable gatherers (skipping gatherers with name contained in `options.skip`, if passed), and pushes to the context stack. Returns an array containing the labels of context objects found and pushed, for popping afterwards.
+	 * @param {any} object
+	 * @param {{skip: string[]}} options
+	 */
+	static gatherFrom(object, options) {
+		HookModule.run('before:ContextModule.gatherFrom', arguments, this)
+
+		RasPG.debug.validate.props('ContextModule.gatherFrom.options', options, false, {
+			skip: 'string[]'
+		})
+
+		const gatheredContext = {}
+		for (const [name, gatherer] of this.#gatherers.entries())
+			if (options?.skip && options.skip.includes(name))
+				continue
+			else if (gatherer.appliesTo(object))
+				Object.assign(gatheredContext, gatherer.callback(object))
+		this.push(gatheredContext)
+
+		HookModule.run('after:ContextModule.gatherFrom', arguments, this)
+		return Array.from(Object.keys(gatheredContext))
+	}
+} RasPG.registerModule('ContextModule', ContextModule)
 
 //# Classes
 /**
