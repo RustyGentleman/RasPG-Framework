@@ -19,7 +19,7 @@
 		"scope": "javascript",
 		"prefix": "valprops",
 		"body": [
-			"RasPG.debug.validate.props($1, $2, {",
+			"RasPG.debug.validate.props('$1.$2', $2, {",
 			"\t$3: '$4'",
 			"})",
 		],
@@ -39,7 +39,7 @@
 		"scope": "javascript",
 		"prefix": "valtype",
 		"body": [
-			"RasPG.debug.validate.type('$1', $2, '$3')",
+			"RasPG.debug.validate.type('$1.$2', $2, '$3')",
 		],
 		"description": ""
 	},

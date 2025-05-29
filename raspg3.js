@@ -1241,20 +1241,46 @@ class Countable extends Component {
 	}
 	#count = 0
 
-	get count() {}
+	get count() {
+		return this.#count
+	}
 
 	/** Sets the object's count. Rounds to closest integer
 	 * @param {number} count
 	 */
-	set(count) {}
+	set(count) {
+		HookModule.run('before:Countable.instance.set', arguments, this)
+
+		RasPG.debug.validate.type('Countable.instance.set.count', count, 'number')
+
+		this.#count = count
+
+		HookModule.run('after:Countable.instance.set', arguments, this)
+	}
 	/** Adds a given amount to the object's count. Rounds to closest integer.
 	 * @param {number} amount
 	 */
-	add(amount) {}
+	add(amount) {
+		HookModule.run('before:Countable.instance.add', arguments, this)
+
+		RasPG.debug.validate.type('Countable.instance.set.amount', amount, 'number')
+
+		this.#count += amount
+
+		HookModule.run('after:Countable.instance.add', arguments, this)
+	}
 	/** Subtracts a given amount from the object's count. Rounds to closest integer.
 	 * @param {number} amount
 	 */
-	subtract(amount) {}
+	subtract(amount) {
+		HookModule.run('before:Countable.instance.subtract', arguments, this)
+
+		RasPG.debug.validate.type('Countable.instance.set.amount', amount, 'number')
+
+		this.#count -= amount
+
+		HookModule.run('after:Countable.instance.subtract', arguments, this)
+	}
 }  RasPG.registerComponent('Countable', Countable)
 class Containing extends Component {
 	static reference = '_container'
