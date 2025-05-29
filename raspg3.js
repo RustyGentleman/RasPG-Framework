@@ -98,6 +98,8 @@ class RasPG {
 				+'\nMaybe got renamed on version change, maybe from framework extension'),
 			missingRequiredContext: (label) => new Error(`[RasPG][missingRequiredContext] Missing required context: "${label}"`
 				+'\nMaybe wrong label, pushed to wrong label, or forgot to push'),
+			brokenStringFormat: (string, format) => new Error(`[RasPG][brokenStringFormat] String format broken: "${string}" must conform to "${format}"`
+				+'\nMaybe typo, maybe forgot; often enforced for good reasons'),
 		},
 		logs: {
 			gameObjectNotFound: (objectID) => {
@@ -597,6 +599,150 @@ class ContextModule {
 		return Array.from(Object.keys(gatheredContext))
 	}
 } RasPG.registerModule('ContextModule', ContextModule)
+class SubTextModule {
+	static #conditionals = new Map()
+	static #substitutions = new Map()
+
+	/** Registers a string-embedded conditional type. Callback function must make use of the ContextModule. Returns `true`, if the identifier wasn't registered, and `false`, if it was and was overwritten.
+	 *
+	 * Embedded conditionals follow the pattern `{type?text displayed if true|text displayed if false}`. The pipe character is not required.
+	 * @param {string | RegExp} identifier Convention: no spaces, camelCase
+	 * @param {(condition: () => boolean) => string} callback
+	 */
+	static registerConditional(identifier, callback) {
+		HookModule.run('before:SubTextModule.registerConditional', arguments, this)
+
+		RasPG.debug.validate.types('SubTextModule.registerConditional', {
+			identifier: [identifier, 'string | RegExp'],
+			callback: [callback, ['function', '() => boolean']],
+		})
+
+		let ret = true
+		if (this.#conditionals.has(identifier))
+			ret = false
+		this.#conditionals.set(identifier, callback)
+
+		HookModule.run('after:SubTextModule.registerConditional', arguments, this)
+		return ret
+	}
+	/** Registers a string substitution template. Callback function must make use of the ContextModule. Returns `true`, if the identifier wasn't registered, and `false`, if it was and was overwritten.
+	 *
+	 * String substitutions follow the pattern `%identifier%`. Strings on context objects can also be substituted in via `%contextLabel.stringKey%`
+	 * @param {string} identifier Must have no whitespaces or dots. Convention: camelCase.
+	 * @param {() => string} callback
+	 */
+	static registerSubstitution(identifier, callback) {
+		HookModule.run('before:SubTextModule.registerSubstitution', arguments, this)
+
+		RasPG.debug.validate.types('SubTextModule.registerSubstitution', {
+			identifier: [identifier, 'string'],
+			callback: [callback, ['function', '() => boolean']],
+		})
+		if (identifier.match(/[\s.]+/))
+			throw RasPG.debug.exceptions.brokenStringFormat(identifier, 'no whitespaces')
+
+		let ret = true
+		if (this.#substitutions.has(identifier))
+			ret = false
+		this.#substitutions.set(identifier, callback)
+
+		HookModule.run('after:SubTextModule.registerSubstitution', arguments, this)
+		return ret
+	}
+	/** Parses any and all embedded conditionals embedded in the given string.
+	 *
+	 * Embedded conditionals follow the pattern `{type?text displayed if true|text displayed if false}`. The pipe character is not required.
+	 * @param {string} string
+	 */
+	static parseConditionals(string) {
+		HookModule.run('before:SubTextModule.parseConditionals', arguments, this)
+
+		RasPG.debug.validate.type('SubTextModule.parseConditionals.string', string, 'string')
+
+		let previous
+		while(true) {
+			if (!string.match(/{[^?{}]+?\?[^{}]+?}/) || string === previous)
+				break
+			previous = string
+			const matches = Array.from(string.matchAll(/{([^?{}]+?)\?([^{}]+?)}/g))
+			for (const [inplace, identifier, substitutes] of matches) {
+				const conditional = this.#conditionals.get(identifier)
+				if (!conditional) {
+					RasPG.debug.logs.elementNotRegisteredInCollection(identifier, 'SubTextModule.#conditionals')
+					continue
+				}
+				const [ifTrue, ifFalse] = substitutes.split('|')
+				if (conditional())
+					string = string.replace(inplace, ifTrue || '')
+				else
+					string = string.replace(inplace, ifFalse || '')
+			}
+		}
+
+		HookModule.run('after:SubTextModule.parseConditionals', arguments, this)
+		return string
+	}
+	/** Parses any and all string substitutions embedded in the given string.
+	 *
+	 * String substitutions follow the pattern `%identifier%`. Strings on context objects can also be substituted in via `%contextLabel.stringKey%`
+	 * @param {string} string
+	 */
+	static parseSubstitutions(string) {
+		HookModule.run('before:SubTextModule.parseSubstitutions', arguments, this)
+
+		RasPG.debug.validate.type('SubTextModule.parseConditionals.string', string, 'string')
+
+		let previous
+		while(true) {
+			if (!string.match(/%[^%]+?%/) || string == previous)
+				break
+			previous = string
+			const matches = Array.from(string.matchAll(/%([^%]+?)%/g))
+			for (const [inplace, identifier] of matches) {
+				const substitution = this.#substitutions.get(identifier)
+				if (substitution) {
+					string = string.replace(inplace, substitution() || '')
+					continue
+				}
+				RasPG.debug.logs.elementNotRegisteredInCollection(identifier, 'SubTextModule.#substitutions')
+				const parts = identifier.match(/^([^.]+)\.(.+)$/)
+				if (!parts) {
+					string = string.replace(inplace, '')
+					continue
+				}
+				const [, contextLabel, stringKey] = parts
+				const contextObject = ContextModule.get(contextLabel)
+				if (!contextObject || !(contextObject instanceof GameObject) || !contextObject.hasComponent(Stringful)) {
+					string = string.replace(inplace, '')
+					continue
+				}
+				const stringValue = contextObject._strings.get(stringKey)
+				if (stringValue)
+					string = string.replace(inplace, stringValue)
+			}
+		}
+
+		HookModule.run('after:SubTextModule.parseSubstitutions', arguments, this)
+		return string
+	}
+	static parse(string) {
+		HookModule.run('before:SubTextModule.parse', arguments, this)
+
+		RasPG.debug.validate.type('SubTextModule.parseConditionals.string', string, 'string')
+
+		while (true) {
+			if (!string.match(/{[^?{}]+?\?[^{}]+?}/) && !string.match(/%[^%]+?%/))
+				break
+			while (string.match(/{[^?{}]+?\?[^{}]+?}/))
+				string = this.parseConditionals(string)
+			while (string.match(/%[^%]+?%/))
+				string = this.parseSubstitutions(string)
+		}
+
+		HookModule.run('after:SubTextModule.parse', arguments, this)
+		return string
+	}
+} RasPG.registerModule('SubTextModule', SubTextModule)
 
 //# Classes
 /**
@@ -841,7 +987,7 @@ class GameObject {
 	serialize() {
 		return this.constructor.serializer(this)
 	}
-}
+} RasPG.registerClass('GameObject', GameObject)
 class Component {
 	static reference
 	static requires = []
@@ -870,7 +1016,7 @@ class Component {
 			return RasPG.debug.logs.componentMissingSerialization(this.constructor.name)
 		return this.constructor.serializer(this)
 	}
-}
+} RasPG.registerClass('Component', Component)
 
 //# Components
 class Stateful extends Component {
@@ -1897,16 +2043,6 @@ class Agentive extends Component {
 	}
 }  RasPG.registerComponent('Agentive', Agentive)
 
-const gameObject = new GameObject('pebble', {
-	components: [Perceptible]
-})
-gameObject._perceptions.definePerceptions({
-	sight: {
-		inContainer: 'a round pebble',
-		direct: "It is rounded and smooth, like it's been rolled along a riverbed for a long time."
-	},
-})
-
 if (typeof module !== 'undefined')
 	module.exports = {
 		RasPG,
@@ -1915,6 +2051,8 @@ if (typeof module !== 'undefined')
 
 		EventModule,
 		HookModule,
+		ContextModule,
+		SubTextModule,
 
 		Stateful,
 		Stringful,

@@ -7,6 +7,7 @@
 - "if already present"
 - "if an error occurred"
 - "Returns the component instance back for further operations."
+- "Can be organized into domains (i.e. 'ex.ample')."
 ## Return patterns
 - `true` means success
 - `null` means (object/item) not found
