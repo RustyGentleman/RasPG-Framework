@@ -82,42 +82,49 @@ class RasPG {
 	}
 	static debug = {
 		exceptions: {
-			notGameObject: () => new TypeError('[RasPG] Expected id or instance of GameObject or subclass'),
-			notComponent: () => new TypeError('[RasPG] Expected name, instance or prototype of Component or subclass'),
-			objectIDConflict: (objectID) => new Error('[RasPG] Conflicting GameObject IDs: ', objectID),
-			generalIDConflict: (domainPath, id) => new Error(`[RasPG] Conflicting IDs on ${domainPath}: `, id),
-			brokenTypeEnforcement: (param, type, expected) => new Error(`[RasPG] Enforced parameter/property type broken: ${param} is ${type}, expected ${expected}`),
-			missingParameter: (param) => new Error(`[RasPG] Missing parameters: ${param}`),
-			deserializerMissingComponent: (component) => new Error(`[RasPG] Deserialization error: missing component "${component}"\nMaybe got renamed on version change, maybe from framework extension`),
+			notGameObject: () => new TypeError('[RasPG][notGameObject] Expected id or instance of GameObject or subclass'
+				+'\nMaybe typo or wrong parameter passed'),
+			notComponent: () => new TypeError('[RasPG][notComponent] Expected name, instance or prototype of Component or subclass'
+				+'\nMaybe typo, wrong parameter passed, or from missing extension'),
+			objectIDConflict: (objectID) => new Error(`[RasPG][objectIDConflict] Conflicting GameObject IDs: "${objectID}"`
+				+'\nMaybe typo, double declaration, or forgot'),
+			generalIDConflict: (domainPath, id) => new Error(`[RasPG][generalIDConflict] Conflicting IDs on "${domainPath}": "${id}"`
+				+'\nMaybe typo, double declaration, or forgot'),
+			brokenTypeEnforcement: (param, type, expected) => new Error(`[RasPG][brokenTypeEnforcement] Enforced parameter/property type broken: "${param}" is "${type}", expected "${expected}"`
+				+'\nMaybe wrong parameter order, typo, or forgot to pass'),
+			missingParameter: (param) => new Error(`[RasPG][missingParameter] Missing required parameter: "${param}"`
+				+'\nMaybe typo or forgot to pass'),
+			deserializerMissingComponent: (component) => new Error(`[RasPG][deserializerMissingComponent] Deserialization error: missing component "${component}"`
+				+'\nMaybe got renamed on version change, maybe from framework extension'),
 		},
 		logs: {
 			gameObjectNotFound: (objectID) => {
 				if (RasPG.config.logErrors)
-					console.error(`[RasPG] ID "${objectID}" does not presently correspond to a registered GameObject instance`
+					console.error(`[RasPG][gameObjectNotFound] ID "${objectID}" does not presently correspond to a registered GameObject instance`
 						+'\nMaybe typo, or not yet created at this line')
 				return false
 			},
 			incorrectPrototype: (objectID, className, operation) => {
 				if (RasPG.config.logWarnings)
-					console.warn(`[RasPG] Object (ID "${objectID}") must be sub-class of "${className}" for use in operation "${operation}"`
+					console.warn(`[RasPG][incorrectPrototype] Object (ID "${objectID}") must be sub-class of "${className}" for use in operation "${operation}"`
 						+'\nMaybe wrong object reference')
 				return false
 			},
 			missingRequiredComponentForOperation: (objectID, componentName, operation) => {
 				if (RasPG.config.logWarnings)
-					console.warn(`[RasPG] Object (ID "${objectID}") is missing required component "${componentName}" for operation "${operation}"`
+					console.warn(`[RasPG][missingRequiredComponentForOperation] Object (ID "${objectID}") is missing required component "${componentName}" for operation "${operation}"`
 						+'\nMaybe wrong object, forgot to add or register component, or added wrong component (Actionable vs Agentive)')
 				return false
 			},
 			elementNotRegisteredInCollection: (element, collection) => {
 				if (RasPG.config.logWarnings)
-					console.warn(`[RasPG] Element "${element}" is not registered in collection "${collection}"`
+					console.warn(`[RasPG][elementNotRegisteredInCollection] Element "${element}" is not registered in collection "${collection}"`
 						+'\nMaybe typo, wrong collection, or not yet added at this line')
 				return false
 			},
 			componentMissingSerialization: (component) => {
 				if (RasPG.config.logWarnings)
-					console.warn(`[RasPG] Component "${component}" is missing a serializer and/or a deserializer functions`
+					console.warn(`[RasPG][componentMissingSerialization] Component "${component}" is missing a serializer and/or a deserializer functions`
 						+'\nMaybe forgot to set, may be intentional')
 				return false
 			},
