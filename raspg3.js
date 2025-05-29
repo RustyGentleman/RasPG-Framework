@@ -144,10 +144,8 @@ class RasPG {
 
 				function checker(val, typeStr) {
 					typeStr = typeStr.trim()
-
 					if (typeStr.endsWith('[]'))
-						typeStr = `Array<${typeStr.slice(0, -2)}>` // normalize shorthand
-
+						typeStr = `Array<${typeStr.slice(0, -2)}>`
 					const arrayMatch = typeStr.match(/^Array<(.+)>$/)
 					if (arrayMatch) {
 						if (!Array.isArray(val))
@@ -155,18 +153,21 @@ class RasPG {
 						const innerTypes = splitTopLevelTypes(arrayMatch[1])
 						return val.every(el => innerTypes.some(inner => checker(el, inner)))
 					}
-
-					return typeof val === typeStr
+					switch(typeStr) {
+						case 'RegExp':
+							return val instanceof RegExp
+						case 'GameObject':
+							return val instanceof GameObject
+						default:
+							return typeof val === typeStr
+					}
 				}
-
 				function splitTopLevelTypes(typeStr) {
 					const types = []
 					let depth = 0
 					let buffer = ''
-
 					for (let i = 0; i < typeStr.length; i++) {
 						const char = typeStr[i]
-
 						if (char === '<') depth++
 						else if (char === '>') depth--
 						else if (char === '|' && depth === 0) {
@@ -174,10 +175,8 @@ class RasPG {
 							buffer = ''
 							continue
 						}
-
 						buffer += char
 					}
-
 					if (buffer) types.push(buffer.trim())
 					return types
 				}
