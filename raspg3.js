@@ -2,7 +2,6 @@
 /** @typedef {{event: string, callback: EventCallback, owner: GameObject, once: boolean}} EventListener */
 /** @typedef {(owner: GameObject, data: EventData) => void} EventCallback */
 /** @typedef {{object: GameObject, property: string, previous: any, current: any}} EventData */
-/** @typedef {{proto: Function, component: Component, components: Iterable<Component>, operation: string, silent: boolean}} GameObjectResolveOptions */
 /** @typedef {{context: PerceptionContext, description: string | PerceptionDescriptionFunction}} Perception */
 /** @typedef {string | 'superficial' | 'direct' | 'inContainer' | 'inRoom' | 'adjacentRoom' | 'onObject'} PerceptionContext */
 /** @typedef {(sensor: GameObject, target: GameObject) => string} PerceptionDescriptionFunction */
@@ -871,11 +870,11 @@ class GameObject {
 		HookModule.run('GameObject.find', arguments, this)
 		return this.#all.find(e => e.id === id) || null
 	}
-	/** Attempts to resolve an object ID to an instance. Optionally checks if it inherits from a given class, and/ir if it contains a given component or set of components.
+	/** Attempts to resolve an object ID to an instance. Optionally checks if it inherits from a given class, and/ir if it contains a given component or set of components. If `id` is a string with the 'template:' prefix, will instantiate the given template and return it, if found.
 	 *
 	 * Returns a GameObject instance if either the ID is resolved or the first parameter is already an instance, and the requested checks are passed. Returns `null` if the ID does not resolve to an object. Returns `false` if any checks fail.
 	 * @param {string | GameObject} id
-	 * @param {GameObjectResolveOptions} options If both `components` and `component` are passed in `options`, only the array is checked. `operation` is the name of the method calling this method, and wwill be passed to warning messages for information. If `silent` is set to `true`, no warnings will be issued.
+	 * @param {{proto: Function, component: Component, components: Iterable<Component>, operation: string}} options If both `components` and `component` are passed in `options`, only the array is checked. `operation` is the name of the method calling this method, and wwill be passed to warning messages for information.
 	 */
 	static resolve(id, options) {
 		HookModule.run('GameObject.resolve', arguments, this)
@@ -884,10 +883,12 @@ class GameObject {
 		if (typeof(id) === 'object' && id instanceof this)
 			object = id
 		else if (typeof(id) === 'string') {
-			object = this.find(id)
+			if (id.startsWith('template:'))
+				object = Template.instantiate(id.slice(9))
+			else
+				object = this.find(id)
 			if (!object) {
-				if (options?.silent !== true)
-					RasPG.debug.logs.gameObjectNotFound(id)
+				RasPG.debug.logs.gameObjectNotFound(id)
 				return null
 			}
 		}
@@ -896,19 +897,13 @@ class GameObject {
 			throw RasPG.debug.exceptions.notGameObject()
 
 		if (options?.proto && typeof(options.proto) === 'function' && options.proto.isPrototypeOf(object))
-			if (options?.silent !== true)
-				return RasPG.debug.logs.incorrectPrototype(id, options.proto.name)
-			else return false
+			return RasPG.debug.logs.incorrectPrototype(id, options.proto.name)
 		if (options?.components)
 			for (const component of options.components)
 				if (!object.hasComponent(component))
-					if (options.silent !== true)
-						return RasPG.debug.logs.missingRequiredComponentForOperation(object.id, component.name, options.operation || 'resolve')
-					else return false
+					return RasPG.debug.logs.missingRequiredComponentForOperation(object.id, component.name, options.operation || 'resolve')
 		if (options?.component &&!object.hasComponent(options.component))
-			if (options?.silent !== true)
-				return RasPG.debug.logs.missingRequiredComponentForOperation(object.id, options.component.name, options.operation || 'resolve')
-			else return false
+			return RasPG.debug.logs.missingRequiredComponentForOperation(object.id, options.component.name, options.operation || 'resolve')
 
 		return object
 	}
