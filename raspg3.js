@@ -45,8 +45,12 @@ class RasPG {
 	}
 	static runtime = {
 		state: {
-			/** @type {'initializing' | 'serializing' | 'running'} */
-			inner: 'initializing',
+			/** @type {{
+			 * push: (val: 'initializing' | 'serializing' | 'running' | 'instantiatingTemplate') => void,
+			 * get : () => 'initializing' | 'serializing' | 'running' | 'instantiatingTemplate',
+			 * pop : () => 'initializing' | 'serializing' | 'running' | 'instantiatingTemplate'
+			 * }} */
+			inner: this.utils.constructors.valueStack('initializing'),
 		},
 		saveModule: undefined,
 		modules: new Map(),
@@ -76,6 +80,15 @@ class RasPG {
 					if (noun.endsWith('fe'))
 						return noun.slice(0, -2)+'ves'
 					return noun+'s'
+				}
+			}
+		constructors: {
+			valueStack(initialValue=undefined) {
+				const stack = [initialValue]
+				return {
+					push: (val) => stack.unshift(val),
+					pop: () => stack.shift(),
+					get: () => stack.at(0) || undefined
 				}
 			}
 		}
@@ -1239,7 +1252,7 @@ class Stringful extends Component {
 	#strings = new Map()
 
 	get strings() {
-		if (RasPG.runtime.state.inner == 'serializing')
+		if (RasPG.runtime.state.inner.get() === 'serializing')
 			return this.#strings
 		return new Map(this.#strings)
 	}
@@ -1520,7 +1533,7 @@ class Tangible extends Component {
 	#location
 
 	get location() {
-		if (RasPG.runtime.state.inner === 'serializing')
+		if (RasPG.runtime.state.inner.get() === 'serializing')
 			return this.#location
 		if (this.#location === undefined)
 			return undefined
@@ -1670,7 +1683,10 @@ class Containing extends Component {
 		if (data.filter)
 			instance.setFilter(eval(data.filter))
 		for (const id of data.contents)
-			instance.add(id)
+			RasPG.utils.scheduling.stateNot(
+				() => instance.add(id),
+				{inner: 'initializing|instantiatingTemplate'}
+			)
 		return instance
 	}
 	#contents = new Set()
@@ -1678,7 +1694,7 @@ class Containing extends Component {
 	#filter
 
 	get contents() {
-		if (RasPG.runtime.state.inner == 'serializing')
+		if (RasPG.runtime.state.inner.get() === 'serializing')
 			return this.#contents
 		return new Set(
 			Array.from(this.#contents)
@@ -1689,7 +1705,7 @@ class Containing extends Component {
 		return this.#filter
 	}
 
-	/** Adds an object to the container. Returns `true`, if successful, `null`, if the object isn't found, and `false`, if the object was already present or is not allowed into the container.
+	/** Adds an object to the container. Returns the component instance back for further operations.
 	 * @param {GameObject | string} object
 	 * @param {{ignoreFilter?: boolean, passOn?: boolean}} options
 	 * @param {boolean} options.ignoreFilter If set to `true`, object will be added to container regardless of a present filter.
@@ -1786,7 +1802,7 @@ class Actionable extends Component {
 	#actions = new Set()
 
 	static get actions() {
-		if (RasPG.runtime.state.inner == 'serializing')
+		if (RasPG.runtime.state.inner.get() === 'serializing')
 			return this.#allActions
 		return new Map(
 			Array.from(this.#allActions)
@@ -1794,7 +1810,7 @@ class Actionable extends Component {
 		)
 	}
 	get actions() {
-		if (RasPG.runtime.state.inner == 'serializing')
+		if (RasPG.runtime.state.inner.get() === 'serializing')
 			return this.#actions
 		return new Set([...this.#actions].filter(action => !Actionable.#disabledActions.has(action)))
 	}
@@ -1971,7 +1987,7 @@ class Agentive extends Component {
 	#acts = new Set()
 
 	static get acts() {
-		if (RasPG.runtime.state.inner == 'serializing')
+		if (RasPG.runtime.state.inner.get() === 'serializing')
 			return this.#allActs
 		return new Map(
 			Array.from(this.#allActs)
@@ -1979,7 +1995,7 @@ class Agentive extends Component {
 		)
 	}
 	get acts() {
-		if (RasPG.runtime.state.inner == 'serializing')
+		if (RasPG.runtime.state.inner.get() === 'serializing')
 			return this.#acts
 		return new Set([...this.#acts].filter(act => !Agentive.#disabledActs.has(act)))
 	}
