@@ -1552,7 +1552,10 @@ class Tangible extends Component {
 	}
 	static deserializer = function(data) {
 		const instance = new Tangible()
-		instance.moveTo(data.location, false)
+		RasPG.utils.scheduling.stateNot(
+			() =>instance.moveTo(data.location, false)
+			, {inner: 'serializing'}
+		)
 		return instance
 	}
 	#location
@@ -1710,7 +1713,7 @@ class Containing extends Component {
 		for (const id of data.contents)
 			RasPG.utils.scheduling.stateNot(
 				() => instance.add(id),
-				{inner: 'initializing|instantiatingTemplate'}
+				{inner: 'serializing|instantiatingTemplate'}
 			)
 		return instance
 	}
