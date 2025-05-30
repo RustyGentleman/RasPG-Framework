@@ -82,6 +82,26 @@ class RasPG {
 					return noun+'s'
 				}
 			}
+		},
+		scheduling: {
+			/**
+			 * @param {function} fn
+			 * @param {{inner?: 'initializing' | 'serializing' | 'running' | 'instantiatingTemplate',[state: string]: string}} options
+			 */
+			stateNot(fn, options) {
+				let ready = true
+				for (const [state, values] of Object.entries(options))
+					for (const value of values.split('|'))
+						if (RasPG.runtime.state[state] === value.trim()) {
+							ready = false
+							break
+						}
+				if (ready)
+					fn()
+				else
+					setTimeout(() => RasPG.utils.scheduling.stateNot(fn))
+			}
+		},
 		constructors: {
 			valueStack(initialValue=undefined) {
 				const stack = [initialValue]
