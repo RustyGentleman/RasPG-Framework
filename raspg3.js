@@ -1702,9 +1702,9 @@ class Containing extends Component {
 		if (!actualObject)
 			return actualObject
 		if (this.has(actualObject))
-			return false
+			return this
 		if (options?.ignoreFilter !== true && this.#filter && !this.#filter(actualObject))
-			return false
+			return this
 
 		if (options?.passOn !== false)
 			actualObject._location.moveTo(this.parent, false)
@@ -1715,9 +1715,9 @@ class Containing extends Component {
 			item: actualObject
 		})
 		HookModule.run('after:Container.instance.add', arguments, this)
-		return true
+		return this
 	}
-	/** Removes an object from the container. Returns `true`, if object was present, `null`, if the object isn't found, and `false`, if the object wasn't present.
+	/** Removes an object from the container. Returns the component instance back for further operations.
 	 * @param {GameObject | string} object
 	 * @param {boolean} passOn INTERNAL USE: if anything but `false`, will call the current (if existent) container's `remove` method and new container's `add` method.
 	 */
@@ -1727,9 +1727,9 @@ class Containing extends Component {
 		const actualObject = GameObject.resolve(object, { component: Tangible, operation: 'Container.instance.remove' })
 
 		if (!actualObject)
-			return actualObject
+			return this
 		if (!this.has(actualObject))
-			return false
+			return this
 
 		if (passOn !== false)
 			actualObject._location.removeFromWorld(false)
@@ -1740,9 +1740,9 @@ class Containing extends Component {
 			item: actualObject
 		})
 		HookModule.run('after:Container.instance.remove', arguments, this)
-		return true
+		return this
 	}
-	/** Sets a filter function that dictates what kinds of GameObjects the container allows.
+	/** Sets a filter function that dictates what kinds of GameObjects the container allows. Returns the component instance back for further operations.
 	 * @param {(GameObject) => boolean} predicate
 	 */
 	setFilter(predicate) {
@@ -1753,6 +1753,7 @@ class Containing extends Component {
 		this.#filter = predicate
 
 		HookModule.run('after:Containing.instance.setFilter', arguments, this)
+		return this
 	}
 	emptyInto(container) {}
 	empty() {}
