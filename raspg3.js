@@ -1017,6 +1017,99 @@ class Component {
 		return this.constructor.serializer(this)
 	}
 } RasPG.registerClass('Component', Component)
+class Template extends GameObject {
+	static #all = new Map()
+
+	/**
+	 * @param {string} id Convention: all lowercase, no spaces.
+	 * @param {{tags?: string[], components?: Array<typeof Component | Component | string>, register?: boolean}} [options]
+	 * @param {string[]} [options.tags] Tags to be added
+	 * @param {Array<typeof Component | Component | string>} [options.components] Components to be added
+	 */
+	constructor(id, options) {
+		HookModule.run('after:Template.constructor', arguments, undefined)
+
+		RasPG.debug.validate.type('Template.constructor.id', id, 'string')
+		RasPG.debug.validate.props('Template.constructor.options', options, false, {
+			tags: 'string[]',
+			components: ['Array<object | function | string>', 'Array<typeof Component | Component | string>'],
+			register: 'boolean'
+		})
+		if (Template.#all.has(id))
+			throw RasPG.debug.exceptions.generalIDConflict('Template.#all', id)
+
+		super(id, Object.assign(options, {register: false}))
+
+		HookModule.run('after:Template.constructor', arguments, this)
+	}
+
+	static get all() {
+		return new Map(this.#all)
+	}
+
+	/** Instantiates an object from a template and returns it.
+	 * @param {string} name
+	 */
+	static instantiate(name) {
+		HookModule.run('before:Template.instantiate', arguments, this)
+
+		RasPG.debug.validate.type('Template.instantiate.name', name, 'string')
+		if (!this.#all.has(name))
+			RasPG.debug.logs.elementNotRegisteredInCollection(name, 'Template.#all')
+
+		RasPG.runtime.state.inner.push('instantiatingTemplate')
+
+		const registered = this.#all.get(name)
+		registered.template.id += '_inst' + registered.instances++
+		const instance = registered.proto.deserializer(registered.template)
+		registered.template.id = registered.template.id.replace(/_inst\d+$/, '')
+
+		RasPG.runtime.state.inner.pop()
+
+		HookModule.run('after:Template.instantiate', arguments, this)
+		return instance
+	}
+	/** Serializes and registers a GameObject (or subclass) instance as a template under the given name.
+	 * @param {string} name
+	 */
+	static registerAs(name, object) {
+		HookModule.run('before:Template.registerAs', arguments, this)
+
+		RasPG.debug.validate.types('Template.registerAs', {
+			name: [name, 'string'],
+			object: [object, 'GameObject']
+		})
+		if (this.#all.has(name))
+			throw RasPG.debug.exceptions.generalIDConflict('Template.#all', name)
+
+		RasPG.runtime.state.inner.push('serializing')
+		this.#all.set(name, {
+			template: object.serialize(),
+			proto: object.constructor,
+			instances: 0
+		})
+		RasPG.runtime.state.inner.pop()
+
+		HookModule.run('after:Template.registerAs', arguments, this)
+	}
+	saveAs(name) {
+		HookModule.run('before:Template.instance.saveAs', arguments, this)
+
+		RasPG.debug.validate.type('Template.instantiate.name', name, 'string')
+		if (Template.#all.has(name))
+			throw RasPG.debug.exceptions.generalIDConflict(('Template.#all', name))
+
+		RasPG.runtime.state.inner.push('serializing')
+		Template.#all.set(name, {
+			template: this.serialize(),
+			proto: GameObject,
+			instances: 0
+		})
+		RasPG.runtime.state.inner.pop()
+
+		HookModule.run('after:Template.instance.saveAs', arguments, this)
+	}
+} RasPG.registerClass('Template', Template)
 
 //# Components
 class Stateful extends Component {
