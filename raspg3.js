@@ -819,7 +819,10 @@ class GameObject {
 
 	/**
 	 * @param {string} id Convention: all lowercase, no spaces.
-	 * @param {{tags?: string[], components?: Array<typeof Component | Component | string>, watchProperties?: boolean}} [options]
+	 * @param {{tags?: string[], components?: Array<typeof Component | Component | string>, register?: boolean}} [options]
+	 * @param {string[]} [options.tags] Tags to be added
+	 * @param {Array<typeof Component | Component | string>} [options.components] Components to be added
+	 * @param {boolean} [options.register] If strictly `false`, instance will not be registered to GameObject.#all.
 	 */
 	constructor(id, options) {
 		HookModule.run('before:GameObject.constructor', arguments, this)
@@ -828,7 +831,7 @@ class GameObject {
 		RasPG.debug.validate.props('GameObject.constructor.options', options, false, {
 			tags: 'string[]',
 			components: ['Array<object | function | string>', 'Array<typeof Component | Component | string>'],
-			watchProperties: 'boolean'
+			register: 'boolean'
 		})
 		if (GameObject.#all.has(id))
 			throw RasPG.debug.exceptions.objectIDConflict(id)
@@ -839,12 +842,13 @@ class GameObject {
 				this.tag(tag)
 		if (options?.components)
 			this.addComponents(...options.components)
-		if (options?.watchProperties) {
-			const proxy = new Proxy(this, EventModule._proxyHandler)
-			GameObject.#all.set(id, proxy)
-			return proxy
-		}
-		GameObject.#all.set(id, this)
+		// if (options?.watchProperties) {
+		// 	const proxy = new Proxy(this, EventModule._proxyHandler)
+		// 	GameObject.#all.set(id, proxy)
+		// 	return proxy
+		// }
+		if (options?.register !== false)
+			GameObject.#all.set(id, this)
 
 		HookModule.run('after:GameObject.constructor', arguments, this)
 		return this
