@@ -42,21 +42,6 @@ class RasPG {
 		logErrors: true,
 		serializeFunctions: false,
 	}
-	static runtime = {
-		state: {
-			/** @type {{
-			 * push: (val: 'initializing' | 'serializing' | 'running' | 'instantiatingTemplate') => void,
-			 * get : () => 'initializing' | 'serializing' | 'running' | 'instantiatingTemplate',
-			 * pop : () => 'initializing' | 'serializing' | 'running' | 'instantiatingTemplate'
-			 * }} */
-			inner: this.utils.constructors.valueStack('initializing'),
-		},
-		saveModule: undefined,
-		modules: new Map(),
-		classes: new Map(),
-		components: new Map(),
-		extensions: new Map(),
-	}
 	static utils = {
 		lang: {
 			en: {
@@ -111,6 +96,21 @@ class RasPG {
 				}
 			}
 		}
+	}
+	static runtime = {
+		state: {
+			/** @type {{
+			 * push: (val: 'initializing' | 'serializing' | 'running' | 'instantiatingTemplate') => void,
+			 * get : () => 'initializing' | 'serializing' | 'running' | 'instantiatingTemplate',
+			 * pop : () => 'initializing' | 'serializing' | 'running' | 'instantiatingTemplate'
+			 * }} */
+			inner: this.utils.constructors.valueStack('initializing'),
+		},
+		saveModule: undefined,
+		modules: new Map(),
+		classes: new Map(),
+		components: new Map(),
+		extensions: new Map(),
 	}
 	static debug = {
 		exceptions: {
