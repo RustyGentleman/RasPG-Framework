@@ -1125,9 +1125,9 @@ class Stateful extends Component {
 	#data = {}
 
 	get data() {
-		if (RasPG.runtime.state.inner == 'serializing')
+		if (RasPG.runtime.state.inner.get() === 'serializing')
 			return this.#data
-		new structuredClone(this.#data)
+		return structuredClone(this.#data)
 	}
 
 	/** Gets the value correlated with the given variable name.
