@@ -1324,11 +1324,15 @@ class Perceptible extends Component {
 		const instance = new Perceptible()
 		for (const sense in data)
 			for (const context in data[sense])
-				if (data[sense][context].startsWith('SERIALIZED_FUNCTION:'))
-					data[sense][context] = eval(data[sense][context].slice(20))
-				else if (data[sense][context] === 'SKIP')
-					delete data[sense][context]
-		instance.definePerceptions(data)
+				if (typeof(data[sense][context]) === 'string')
+					if (data[sense][context].startsWith('SERIALIZED_FUNCTION:'))
+						data[sense][context] = eval(data[sense][context].slice(20))
+					else if (data[sense][context] === 'SKIP')
+						delete data[sense][context]
+		RasPG.utils.scheduling.stateNot(
+			() => instance.definePerceptions(data),
+			{inner: 'serializing|instantiatingTemplate'}
+		)
 		return instance
 	}
 	#perceptions = new Map()
