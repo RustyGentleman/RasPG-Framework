@@ -1214,25 +1214,26 @@ class Stateful extends Component {
 class Stringful extends Component {
 	static reference = '_strings'
 	static serializer = function(instance) {
-		return {
-			strings: Array.from(instance.strings)
-				.map(e => {
-					if (typeof(e) === 'function')
-						if (RasPG.config.serializeFunctions)
-							return 'SERIALIZED_FUNCTION:' + e.toString()
-						else
-							return 'SKIP'
-					else return e
-				})
-		}
+		return Array.from(instance.strings)
+			.map(e => {
+				if (typeof(e) === 'function')
+					if (RasPG.config.serializeFunctions)
+						return 'SERIALIZED_FUNCTION:' + e.toString()
+					else
+						return 'SKIP'
+				else return e
+			})
 	}
 	static deserializer = function(data) {
 		const instance = new Stringful()
 		for (const [key, string] of data)
-			if (string.startsWith('SERIALIZED_FUNCTION:'))
-				instance.set(key, eval(string.slice(20)))
-			else if (string !== 'SKIP')
+			if (typeof(string) === 'function')
 				instance.set(key, string)
+			else if (typeof(string) === 'string')
+				if (string.startsWith('SERIALIZED_FUNCTION:'))
+					instance.set(key, eval(string.slice(20)))
+				else if (string !== 'SKIP')
+					instance.set(key, string)
 		return instance
 	}
 	#strings = new Map()
