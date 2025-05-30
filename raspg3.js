@@ -1087,7 +1087,7 @@ class Template extends GameObject {
 
 		RasPG.debug.validate.type('Template.instantiate.name', name, 'string')
 		if (!this.#all.has(name))
-			RasPG.debug.logs.elementNotRegisteredInCollection(name, 'Template.#all')
+			return RasPG.debug.logs.elementNotRegisteredInCollection(name, 'Template.#all')
 
 		RasPG.runtime.state.inner.push('instantiatingTemplate')
 
