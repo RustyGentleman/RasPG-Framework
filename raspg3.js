@@ -1098,6 +1098,12 @@ class Template extends GameObject {
 
 		RasPG.runtime.state.inner.pop()
 
+		EventModule.emit('template.instantiated', {
+			object: instance,
+			name,
+			template: registered.template,
+			instance: registered.instances-1
+		})
 		HookModule.run('after:Template.instantiate', arguments, this)
 		return instance
 	}
