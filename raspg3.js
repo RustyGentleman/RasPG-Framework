@@ -76,14 +76,14 @@ class RasPG {
 				let ready = true
 				for (const [state, values] of Object.entries(options))
 					for (const value of values.split('|'))
-						if (RasPG.runtime.state[state] === value.trim()) {
+						if (RasPG.runtime.state[state].get() === value.trim()) {
 							ready = false
 							break
 						}
 				if (ready)
 					fn()
 				else
-					setTimeout(() => RasPG.utils.scheduling.stateNot(fn))
+					setTimeout(() => RasPG.utils.scheduling.stateNot(fn, options))
 			}
 		},
 		constructors: {
