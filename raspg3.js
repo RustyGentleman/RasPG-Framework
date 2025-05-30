@@ -805,11 +805,11 @@ class GameObject {
 	}
 	static deserializer = function(data) {
 		const object = new GameObject(data.id, { tags: data.tags })
-		for (const [name, data] of Object.entries(data.components)) {
+		for (const [name, cData] of Object.entries(data.components)) {
 			const component = RasPG.runtime.components.get(name)
 			if (!component)
 				throw RasPG.debug.exceptions.deserializerMissingComponent()
-			const instance = component.deserializer(data)
+			const instance = component.deserializer(cData)
 			object.addComponent(instance)
 		}
 	}
