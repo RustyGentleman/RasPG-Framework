@@ -112,25 +112,27 @@ class RasPG {
 		components: new Map(),
 		extensions: new Map(),
 	}
-	static debug = {
+	static dev = {
 		exceptions: {
-			notGameObject: () => new TypeError('[RasPG][notGameObject] Expected id or instance of GameObject or subclass'
+			NotGameObject: () => new TypeError('[RasPG][NotGameObject] Expected id or instance of GameObject or subclass'
 				+'\nMaybe typo or wrong parameter passed'),
-			notComponent: () => new TypeError('[RasPG][notComponent] Expected name, instance or prototype of Component or subclass'
+			NotComponent: () => new TypeError('[RasPG][NotComponent] Expected name, instance or prototype of Component or subclass'
 				+'\nMaybe typo, wrong parameter passed, or from missing extension'),
-			objectIDConflict: (objectID) => new Error(`[RasPG][objectIDConflict] Conflicting GameObject IDs: "${objectID}"`
+			ObjectIDConflict: (objectID) => new Error(`[RasPG][ObjectIDConflict] Conflicting GameObject IDs: "${objectID}"`
 				+'\nMaybe typo, double declaration, or forgot'),
-			generalIDConflict: (domainPath, id) => new Error(`[RasPG][generalIDConflict] Conflicting IDs on "${domainPath}": "${id}"`
+			GeneralIDConflict: (domainPath, id) => new Error(`[RasPG][GeneralIDConflict] Conflicting IDs on "${domainPath}": "${id}"`
 				+'\nMaybe typo, double declaration, or forgot'),
-			brokenTypeEnforcement: (param, type, expected) => new Error(`[RasPG][brokenTypeEnforcement] Enforced parameter/property type broken: "${param}" is "${type}", expected "${expected}"`
+			BrokenTypeEnforcement: (param, type, expected) => new Error(`[RasPG][BrokenTypeEnforcement] Enforced parameter/property type broken: "${param}" is "${type}", expected "${expected}"`
 				+'\nMaybe wrong parameter order, typo, or forgot to pass'),
-			missingParameter: (param) => new Error(`[RasPG][missingParameter] Missing required parameter: "${param}"`
+			MissingParameter: (param) => new Error(`[RasPG][MissingParameter] Missing required parameter: "${param}"`
 				+'\nMaybe typo or forgot to pass'),
-			deserializerMissingComponent: (component) => new Error(`[RasPG][deserializerMissingComponent] Deserialization error: missing component "${component}"`
-				+'\nMaybe got renamed on version change, maybe from framework extension'),
-			missingRequiredContext: (label) => new Error(`[RasPG][missingRequiredContext] Missing required context: "${label}"`
+			DeserializerMissingComponent: (component) => new Error(`[RasPG][DeserializerMissingComponent] Deserialization error: missing component "${component}"`
+				+'\nMaybe typo, got renamed, or from missing extension'),
+			MissingRequiredContext: (label) => new Error(`[RasPG][MissingRequiredContext] Missing required context: "${label}"`
 				+'\nMaybe wrong label, pushed to wrong label, or forgot to push'),
-			brokenStringFormat: (string, format) => new Error(`[RasPG][brokenStringFormat] String format broken: "${string}" must conform to "${format}"`
+			BrokenStringFormat: (string, format) => new Error(`[RasPG][BrokenStringFormat] String format broken: "${string}" must conform to "${format}"`
+				+'\nMaybe typo, maybe forgot; often enforced for good reasons'),
+			TemplateReferenceViolation: (domainPath, reference) => new Error(`[RasPG][TemplateReferenceViolation] Attempted operation "${domainPath}" during templating would incur exclusive relationship between static object and template instance`
 				+'\nMaybe typo, maybe forgot; often enforced for good reasons'),
 		},
 		logs: {
@@ -175,7 +177,7 @@ class RasPG {
 				const isValid = acceptedTypes.some(type => checker(value, type))
 
 				if (!isValid)
-					throw RasPG.debug.exceptions.brokenTypeEnforcement(`${path}.${value}`, typeof value, label)
+					throw RasPG.dev.exceptions.BrokenTypeEnforcement(`${path}.${value}`, typeof value, label)
 				return true
 
 				function checker(val, typeStr) {
@@ -229,11 +231,11 @@ class RasPG {
 					return true
 				if (typeof(object) !== 'object')
 					if (RasPG.config.parameterTypeEnforcement)
-						throw RasPG.debug.exceptions.brokenTypeEnforcement(path.match(/[^\.]+$/), typeof(object), 'object')
+						throw RasPG.dev.exceptions.BrokenTypeEnforcement(path.match(/[^\.]+$/), typeof(object), 'object')
 					else return false
 				for (const [prop, typeSpec] of Object.entries(required)) {
 					if (!(prop in object))
-						throw RasPG.debug.exceptions.missingParameter(prop)
+						throw RasPG.dev.exceptions.MissingParameter(prop)
 					else if (RasPG.config.parameterTypeEnforcement && typeSpec !== '')
 						this.type(path+'.'+prop, object[prop], typeSpec)
 				}
@@ -265,9 +267,9 @@ class RasPG {
 	 */
 	static registerModule(name, module) {
 		if (typeof(name) !== 'string')
-			throw RasPG.debug.exceptions.brokenTypeEnforcement('RasPG.registerModule.name', 'string')
+			throw RasPG.dev.exceptions.BrokenTypeEnforcement('RasPG.registerModule.name', 'string')
 		if (typeof(module) !== 'function')
-			throw RasPG.debug.exceptions.brokenTypeEnforcement('RasPG.registerModule.module', 'function')
+			throw RasPG.dev.exceptions.BrokenTypeEnforcement('RasPG.registerModule.module', 'function')
 		if (this.runtime.modules.has(name)) {
 			console.warn(`[RasPG - Core] Attempted to register module "${name}" more than once.`
 				+'\nNo clue here, honestly; unless also attempting to register an extension more than once')
@@ -282,9 +284,9 @@ class RasPG {
 	 */
 	static registerClass(name, clss) {
 		if (typeof(name) !== 'string')
-			throw RasPG.debug.exceptions.brokenTypeEnforcement('RasPG.registerClass.name', 'string')
+			throw RasPG.dev.exceptions.BrokenTypeEnforcement('RasPG.registerClass.name', 'string')
 		if (typeof(clss) !== 'function')
-			throw RasPG.debug.exceptions.brokenTypeEnforcement('RasPG.registerClass.clss', 'function')
+			throw RasPG.dev.exceptions.BrokenTypeEnforcement('RasPG.registerClass.clss', 'function')
 		if (this.runtime.classes.has(name)) {
 			console.warn(`[RasPG - Core] Attempted to register class "${name}" more than once.`
 				+'\nNo clue here, honestly; unless also attempting to register an extension more than once')
@@ -299,9 +301,9 @@ class RasPG {
 	 */
 	static registerComponent(name, component) {
 		if (typeof(name) !== 'string')
-			throw RasPG.debug.exceptions.brokenTypeEnforcement('RasPG.registerComponent.name', 'string')
+			throw RasPG.dev.exceptions.BrokenTypeEnforcement('RasPG.registerComponent.name', 'string')
 		if (typeof(component) !== 'function')
-			throw RasPG.debug.exceptions.brokenTypeEnforcement('RasPG.registerComponent.component', 'function')
+			throw RasPG.dev.exceptions.BrokenTypeEnforcement('RasPG.registerComponent.component', 'function')
 		if (this.runtime.components.has(name)) {
 			console.warn(`[RasPG - Core] Attempted to register component "${name}" more than once.`
 				+'\nNo clue here, honestly; unless also attempting to register an extension more than once')
@@ -316,9 +318,9 @@ class RasPG {
 	 */
 	static registerExtension(name, metadata) {
 		if (typeof(name) !== 'string')
-			throw RasPG.debug.exceptions.brokenTypeEnforcement('RasPG.registerExtension.name', 'string')
+			throw RasPG.dev.exceptions.BrokenTypeEnforcement('RasPG.registerExtension.name', 'string')
 		if (typeof(metadata) !== 'object')
-			throw RasPG.debug.exceptions.brokenTypeEnforcement('RasPG.registerExtension.metadata', 'object')
+			throw RasPG.dev.exceptions.BrokenTypeEnforcement('RasPG.registerExtension.metadata', 'object')
 		if (this.runtime.extensions.has(name)) {
 			console.warn(`[RasPG - Core] Attempted to register extension "${name}" more than once.`
 				+'\nMaybe importing on or from multiple places')
@@ -530,7 +532,7 @@ class ContextModule {
 	static push(objects) {
 		HookModule.run('before:ContextModule.push', arguments, this)
 
-		RasPG.debug.validate.type('ContextModule.push.objects', objects, 'object')
+		RasPG.dev.validate.type('ContextModule.push.objects', objects, 'object')
 
 		for (const label in objects) {
 			if (!(label in this.#context))
@@ -554,7 +556,7 @@ class ContextModule {
 	static pop(labels) {
 		HookModule.run('before:ContextModule.pop', arguments, this)
 
-		RasPG.debug.validate.type('ContextModule.push.labels', labels, 'Array<string>')
+		RasPG.dev.validate.type('ContextModule.push.labels', labels, 'Array<string>')
 
 		let ret = 0
 		for (const label of labels) {
@@ -572,20 +574,20 @@ class ContextModule {
 	/** Returns the object under the given label from the context.
 	 * @param {string} label
 	 * @param {{required: boolean}} options
-	 * @param {boolean} options.required If set strictly to `true`, will throw a missingRequiredContext exception if the requested context-object stack is empty.
+	 * @param {boolean} options.required If set strictly to `true`, will throw a MissingRequiredContext exception if the requested context-object stack is empty.
 	 */
 	static get(label, options) {
 		HookModule.run('ContextModule.get', arguments, this)
 
-		RasPG.debug.validate.type('ContextModule.label', label, 'string')
-		RasPG.debug.validate.props('ContextModule.options', options, false, {
+		RasPG.dev.validate.type('ContextModule.label', label, 'string')
+		RasPG.dev.validate.props('ContextModule.options', options, false, {
 			required: 'boolean'
 		})
 
 		if (label in this.#context)
 			return this.#context[label].at(0)
 		else if (options?.required === true)
-			throw RasPG.debug.exceptions.missingRequiredContext(label)
+			throw RasPG.dev.exceptions.MissingRequiredContext(label)
 		else
 			return undefined
 	}
@@ -598,8 +600,8 @@ class ContextModule {
 	static registerGatherer(name, gatherer) {
 		HookModule.run('before:ContextModule.registerGatherer', arguments, this)
 
-		RasPG.debug.validate.type('ContextModule.registerGatherer.name', name, 'string')
-		RasPG.debug.validate.props('ContextModule.registerGatherer.gatherer', gatherer, {
+		RasPG.dev.validate.type('ContextModule.registerGatherer.name', name, 'string')
+		RasPG.dev.validate.props('ContextModule.registerGatherer.gatherer', gatherer, {
 			appliesTo: ['function', '(any) => boolean'],
 			callback: ['function', '(any) => {[label: string]: object}']
 		})
@@ -615,7 +617,7 @@ class ContextModule {
 	static gatherFrom(object, options) {
 		HookModule.run('before:ContextModule.gatherFrom', arguments, this)
 
-		RasPG.debug.validate.props('ContextModule.gatherFrom.options', options, false, {
+		RasPG.dev.validate.props('ContextModule.gatherFrom.options', options, false, {
 			skip: 'string[]'
 		})
 
@@ -644,7 +646,7 @@ class SubTextModule {
 	static registerConditional(identifier, callback) {
 		HookModule.run('before:SubTextModule.registerConditional', arguments, this)
 
-		RasPG.debug.validate.types('SubTextModule.registerConditional', {
+		RasPG.dev.validate.types('SubTextModule.registerConditional', {
 			identifier: [identifier, 'string | RegExp'],
 			callback: [callback, ['function', '() => boolean']],
 		})
@@ -666,12 +668,12 @@ class SubTextModule {
 	static registerSubstitution(identifier, callback) {
 		HookModule.run('before:SubTextModule.registerSubstitution', arguments, this)
 
-		RasPG.debug.validate.types('SubTextModule.registerSubstitution', {
+		RasPG.dev.validate.types('SubTextModule.registerSubstitution', {
 			identifier: [identifier, 'string'],
 			callback: [callback, ['function', '() => boolean']],
 		})
 		if (identifier.match(/[\s.]+/))
-			throw RasPG.debug.exceptions.brokenStringFormat(identifier, 'no whitespaces')
+			throw RasPG.dev.exceptions.BrokenStringFormat(identifier, 'no whitespaces')
 
 		let ret = true
 		if (this.#substitutions.has(identifier))
@@ -689,7 +691,7 @@ class SubTextModule {
 	static parseConditionals(string) {
 		HookModule.run('before:SubTextModule.parseConditionals', arguments, this)
 
-		RasPG.debug.validate.type('SubTextModule.parseConditionals.string', string, 'string')
+		RasPG.dev.validate.type('SubTextModule.parseConditionals.string', string, 'string')
 
 		let previous
 		while(true) {
@@ -700,7 +702,7 @@ class SubTextModule {
 			for (const [inplace, identifier, substitutes] of matches) {
 				const conditional = this.#conditionals.get(identifier)
 				if (!conditional) {
-					RasPG.debug.logs.elementNotRegisteredInCollection(identifier, 'SubTextModule.#conditionals')
+					RasPG.dev.logs.elementNotRegisteredInCollection(identifier, 'SubTextModule.#conditionals')
 					continue
 				}
 				const [ifTrue, ifFalse] = substitutes.split('|')
@@ -722,7 +724,7 @@ class SubTextModule {
 	static parseSubstitutions(string) {
 		HookModule.run('before:SubTextModule.parseSubstitutions', arguments, this)
 
-		RasPG.debug.validate.type('SubTextModule.parseConditionals.string', string, 'string')
+		RasPG.dev.validate.type('SubTextModule.parseConditionals.string', string, 'string')
 
 		let previous
 		while(true) {
@@ -736,7 +738,7 @@ class SubTextModule {
 					string = string.replace(inplace, substitution() || '')
 					continue
 				}
-				RasPG.debug.logs.elementNotRegisteredInCollection(identifier, 'SubTextModule.#substitutions')
+				RasPG.dev.logs.elementNotRegisteredInCollection(identifier, 'SubTextModule.#substitutions')
 				const parts = identifier.match(/^([^.]+)\.(.+)$/)
 				if (!parts) {
 					string = string.replace(inplace, '')
@@ -760,7 +762,7 @@ class SubTextModule {
 	static parse(string) {
 		HookModule.run('before:SubTextModule.parse', arguments, this)
 
-		RasPG.debug.validate.type('SubTextModule.parseConditionals.string', string, 'string')
+		RasPG.dev.validate.type('SubTextModule.parseConditionals.string', string, 'string')
 
 		while (true) {
 			if (!string.match(/{[^?{}]+?\?[^{}]+?}/) && !string.match(/%[^%]+?%/))
@@ -807,7 +809,7 @@ class GameObject {
 		for (const [name, cData] of Object.entries(data.components)) {
 			const component = RasPG.runtime.components.get(name)
 			if (!component)
-				throw RasPG.debug.exceptions.deserializerMissingComponent()
+				throw RasPG.dev.exceptions.DeserializerMissingComponent()
 			const instance = component.deserializer(cData)
 			object.addComponent(instance)
 		}
@@ -826,14 +828,14 @@ class GameObject {
 	constructor(id, options) {
 		HookModule.run('before:GameObject.constructor', arguments, this)
 
-		RasPG.debug.validate.type('GameObject.constructor.id', id, 'string')
-		RasPG.debug.validate.props('GameObject.constructor.options', options, false, {
+		RasPG.dev.validate.type('GameObject.constructor.id', id, 'string')
+		RasPG.dev.validate.props('GameObject.constructor.options', options, false, {
 			tags: 'string[]',
 			components: ['Array<object | function | string>', 'Array<typeof Component | Component | string>'],
 			register: 'boolean'
 		})
 		if (GameObject.#all.has(id))
-			throw RasPG.debug.exceptions.objectIDConflict(id)
+			throw RasPG.dev.exceptions.ObjectIDConflict(id)
 
 		this.#id = id
 		if (options?.tags)
@@ -888,22 +890,22 @@ class GameObject {
 			else
 				object = this.find(id)
 			if (!object) {
-				RasPG.debug.logs.gameObjectNotFound(id)
+				RasPG.dev.logs.gameObjectNotFound(id)
 				return null
 			}
 		}
 
 		if (!object)
-			throw RasPG.debug.exceptions.notGameObject()
+			throw RasPG.dev.exceptions.NotGameObject()
 
 		if (options?.proto && typeof(options.proto) === 'function' && options.proto.isPrototypeOf(object))
-			return RasPG.debug.logs.incorrectPrototype(id, options.proto.name)
+			return RasPG.dev.logs.incorrectPrototype(id, options.proto.name)
 		if (options?.components)
 			for (const component of options.components)
 				if (!object.hasComponent(component))
-					return RasPG.debug.logs.missingRequiredComponentForOperation(object.id, component.name, options.operation || 'resolve')
+					return RasPG.dev.logs.missingRequiredComponentForOperation(object.id, component.name, options.operation || 'resolve')
 		if (options?.component &&!object.hasComponent(options.component))
-			return RasPG.debug.logs.missingRequiredComponentForOperation(object.id, options.component.name, options.operation || 'resolve')
+			return RasPG.dev.logs.missingRequiredComponentForOperation(object.id, options.component.name, options.operation || 'resolve')
 
 		return object
 	}
@@ -959,7 +961,7 @@ class GameObject {
 
 		let actualComponent = Component.resolve(component)
 		if (!actualComponent)
-			throw RasPG.debug.exceptions.notComponent()
+			throw RasPG.dev.exceptions.NotComponent()
 
 		return this._components.get(actualComponent.constructor.name) || null
 	}
@@ -971,7 +973,7 @@ class GameObject {
 
 		let actualComponent = Component.resolve(component)
 		if (!actualComponent)
-			throw RasPG.debug.exceptions.notComponent()
+			throw RasPG.dev.exceptions.NotComponent()
 
 		return this._components.has(actualComponent.prototype.constructor.name)
 	}
@@ -981,7 +983,7 @@ class GameObject {
 	tag(tag) {
 		HookModule.run('before:GameObject.instance.tag', arguments, this)
 
-		RasPG.debug.validate.type('GameObject.instance.tag.tag', tag, 'string')
+		RasPG.dev.validate.type('GameObject.instance.tag.tag', tag, 'string')
 		if (this.#tags.has(tag))
 			return false
 
@@ -996,7 +998,7 @@ class GameObject {
 	untag(tag) {
 		HookModule.run('before:GameObject.instance.untag', arguments, this)
 
-		RasPG.debug.validate.type('GameObject.instance.untag.tag', tag, 'string')
+		RasPG.dev.validate.type('GameObject.instance.untag.tag', tag, 'string')
 		if (!this.#tags.has(tag))
 			return false
 
@@ -1011,7 +1013,7 @@ class GameObject {
 	isTagged(tag) {
 		HookModule.run('GameObject.instance.isTagged', arguments, this)
 
-		RasPG.debug.validate.type('GameObject.instance.isTagged.tag', tag, 'string')
+		RasPG.dev.validate.type('GameObject.instance.isTagged.tag', tag, 'string')
 
 		return (this.#tags.has(tag))
 	}
@@ -1040,12 +1042,12 @@ class Component {
 		if (typeof(component) === 'object' && (component instanceof this))
 			return component.constructor
 
-		throw RasPG.debug.exceptions.notComponent()
+		throw RasPG.dev.exceptions.NotComponent()
 	}
 	/** Uses the component subclass' `serializer` function to compile the component instance's data in the form of a JSON-compatible object. */
 	serialize() {
 		if (!this.constructor.serializer)
-			return RasPG.debug.logs.componentMissingSerialization(this.constructor.name)
+			return RasPG.dev.logs.componentMissingSerialization(this.constructor.name)
 		return this.constructor.serializer(this)
 	}
 } RasPG.registerClass('Component', Component)
@@ -1174,9 +1176,9 @@ class Stateful extends Component {
 	get(variable) {
 		HookModule.run('Stateful.instance.get', arguments, this)
 
-		RasPG.debug.validate.type('Stateful.instance.get.variable', variable, 'string')
+		RasPG.dev.validate.type('Stateful.instance.get.variable', variable, 'string')
 		if (!(variable in this.#data))
-			return RasPG.debug.logs.elementNotRegisteredInCollection(variable, 'Stateful.instance.data')
+			return RasPG.dev.logs.elementNotRegisteredInCollection(variable, 'Stateful.instance.data')
 
 		return this.#data[variable]
 	}
@@ -1187,12 +1189,12 @@ class Stateful extends Component {
 	set(variable, value) {
 		HookModule.run('before:Stateful.instance.set', arguments, this)
 
-		RasPG.debug.validate.types('Stateful.instance.set', {
+		RasPG.dev.validate.types('Stateful.instance.set', {
 			variable: [variable, 'string'],
 			value: [value, 'number | boolean | undefined'],
 		})
 		if (!(variable in this.#data))
-			return RasPG.debug.logs.elementNotRegisteredInCollection(variable, 'Stateful.instance.data')
+			return RasPG.dev.logs.elementNotRegisteredInCollection(variable, 'Stateful.instance.data')
 
 		const previous = this.#data[variable]
 		this.#data[variable] = value
@@ -1218,7 +1220,7 @@ class Stateful extends Component {
 	create(variable, initialValue) {
 		HookModule.run('before:Stateful.instance.create', arguments, this)
 
-		RasPG.debug.validate.types('Stateful.instance.create', {
+		RasPG.dev.validate.types('Stateful.instance.create', {
 			variable: [variable, 'string'],
 			initialValue: [initialValue, 'number | boolean | undefined'],
 		})
@@ -1289,7 +1291,7 @@ class Stringful extends Component {
 	get(key) {
 		HookModule.run('Stringful.instance.get', arguments, this)
 
-		RasPG.debug.validate.type('Stringful.instance.get.key', key, 'string')
+		RasPG.dev.validate.type('Stringful.instance.get.key', key, 'string')
 
 		let string = this.#strings.get(key)
 		if (typeof(string) === 'function')
@@ -1304,7 +1306,7 @@ class Stringful extends Component {
 	set(key, string) {
 		HookModule.run('before:Stringful.instance.set', arguments, this)
 
-		RasPG.debug.validate.types('Stringful.instance.set', {
+		RasPG.dev.validate.types('Stringful.instance.set', {
 			key: [key, 'string'],
 			string: [string, ['string | function', 'string | () => string']],
 		})
@@ -1403,7 +1405,7 @@ class Perceptible extends Component {
 	describe(options) {
 		HookModule.run('before:Perceptible.instance.describe', arguments, this)
 
-		RasPG.debug.validate.props('Perceptible.instance.describe.options', options, {
+		RasPG.dev.validate.props('Perceptible.instance.describe.options', options, {
 			name: ['string | function', 'string | () => string'],
 			description: ['string | function', 'string | () => string']
 		}, {
@@ -1436,7 +1438,7 @@ class Perceptible extends Component {
 	setPerception(sense, context, description) {
 		HookModule.run('before:Perceptible.instance.setPerception', arguments, this)
 
-		RasPG.debug.validate.types('Perceptible.instance.setPerception', {
+		RasPG.dev.validate.types('Perceptible.instance.setPerception', {
 			sense: [sense, 'string'],
 			context: [context, 'string'],
 			description: [description, ['string | function', 'string | (sensor, target) => string']]
@@ -1467,12 +1469,12 @@ class Perceptible extends Component {
 
 		for (const sense in options) {
 			if (typeof(sense) !== 'string')
-				throw RasPG.debug.exceptions.brokenEnforcedType('Perceptible.instance.definePerceptions.sense', 'string')
+				throw RasPG.dev.exceptions.brokenEnforcedType('Perceptible.instance.definePerceptions.sense', 'string')
 			for (const context in options[sense]) {
 				if (typeof(context) !== 'string')
-					throw RasPG.debug.exceptions.brokenEnforcedType('Perceptible.instance.definePerceptions.context', 'string')
+					throw RasPG.dev.exceptions.brokenEnforcedType('Perceptible.instance.definePerceptions.context', 'string')
 				if (typeof(options[sense][context]) !== 'string' && typeof(options[sense][context]) !== 'function')
-					throw RasPG.debug.exceptions.brokenEnforcedType('Perceptible.instance.definePerceptions.sense[context]', 'string | () => string')
+					throw RasPG.dev.exceptions.brokenEnforcedType('Perceptible.instance.definePerceptions.sense[context]', 'string | () => string')
 				this.setPerception(sense, context, options[sense][context])
 			}
 		}
@@ -1487,7 +1489,7 @@ class Perceptible extends Component {
 	removePerception(sense, context) {
 		HookModule.run('before:Perceptible.instance.removePerception', arguments, this)
 
-		RasPG.debug.validate.types('Perceptible.instance.removePerception', {
+		RasPG.dev.validate.types('Perceptible.instance.removePerception', {
 			sense: [sense, 'string'],
 			context: [context, 'string'],
 		})
@@ -1509,14 +1511,14 @@ class Perceptible extends Component {
 	perceive(sense, context, sensor) {
 		HookModule.run('before:Perceptible.instance.perceive', arguments, this)
 
-		RasPG.debug.validate.types('Perceptible.instance.perceive', {
+		RasPG.dev.validate.types('Perceptible.instance.perceive', {
 			sense: [sense, 'string'],
 			context: [context, 'string'],
 		})
 		if (!this.#perceptions.has(sense))
 			return null
 		if (!(sensor instanceof GameObject))
-			throw RasPG.debug.exceptions.notGameObject()
+			throw RasPG.dev.exceptions.NotGameObject()
 
 		const perceptions = this.#perceptions.get(sense)
 		let found
@@ -1666,7 +1668,7 @@ class Countable extends Component {
 	set(count) {
 		HookModule.run('before:Countable.instance.set', arguments, this)
 
-		RasPG.debug.validate.type('Countable.instance.set.count', count, 'number')
+		RasPG.dev.validate.type('Countable.instance.set.count', count, 'number')
 
 		this.#count = count
 
@@ -1678,7 +1680,7 @@ class Countable extends Component {
 	add(amount) {
 		HookModule.run('before:Countable.instance.add', arguments, this)
 
-		RasPG.debug.validate.type('Countable.instance.set.amount', amount, 'number')
+		RasPG.dev.validate.type('Countable.instance.set.amount', amount, 'number')
 
 		this.#count += amount
 
@@ -1690,7 +1692,7 @@ class Countable extends Component {
 	subtract(amount) {
 		HookModule.run('before:Countable.instance.subtract', arguments, this)
 
-		RasPG.debug.validate.type('Countable.instance.set.amount', amount, 'number')
+		RasPG.dev.validate.type('Countable.instance.set.amount', amount, 'number')
 
 		this.#count -= amount
 
@@ -1742,22 +1744,32 @@ class Containing extends Component {
 	add(object, options) {
 		HookModule.run('before:Container.instance.add', arguments, this)
 
-		const actualObject = GameObject.resolve(object, { component: Tangible, operation: 'Container.instance.add' })
-		if (!actualObject)
-			return actualObject
-		if (this.has(actualObject))
-			return this
-		if (options?.ignoreFilter !== true && this.#filter && !this.#filter(actualObject))
-			return this
+		if (RasPG.runtime.state.inner.get() == 'templating') {
+			RasPG.dev.validate.type('Containing.instance.add.object', object, ['string', 'instantiate:<name>'])
+			if (!object.startsWith('instantiate:'))
+				throw RasPG.dev.exceptions.TemplateReferenceViolation('Containing.instance.add', object)
 
-		if (options?.passOn !== false)
-			actualObject._location.moveTo(this.parent, false)
-		this.#contents.add(actualObject.id)
+			this.#contents.add(object)
+		}
+		else {
+			const actualObject = GameObject.resolve(object, { component: Tangible, operation: 'Container.instance.add' })
+			if (!actualObject)
+				return actualObject
+			if (this.has(actualObject))
+				return this
+			if (options?.ignoreFilter !== true && this.#filter && !this.#filter(actualObject))
+				return this
 
-		EventModule.emit('container.added', {
-			object: this.parent,
-			item: actualObject
-		})
+			if (options?.passOn !== false)
+				actualObject._location.moveTo(this.parent, false)
+			this.#contents.add(actualObject.id)
+
+			EventModule.emit('container.added', {
+				object: this.parent,
+				item: actualObject
+			})
+		}
+
 		HookModule.run('after:Container.instance.add', arguments, this)
 		return this
 	}
@@ -1792,7 +1804,7 @@ class Containing extends Component {
 	setFilter(predicate) {
 		HookModule.run('before:Containing.instance.setFilter', arguments, this)
 
-		RasPG.debug.validate.type('Containing.instance.setFilter.predicate', predicate, ['function', '(GameObject) => boolean'])
+		RasPG.dev.validate.type('Containing.instance.setFilter.predicate', predicate, ['function', '(GameObject) => boolean'])
 
 		this.#filter = predicate
 
@@ -1850,13 +1862,13 @@ class Actionable extends Component {
 	static registerAction(name, actionObject) {
 		HookModule.run('before:Actionable.registerAction', arguments, this)
 
-		RasPG.debug.validate.type('Actionable.registerAction.name', name, 'string')
-		RasPG.debug.validate.props('Actionable.registerAction.actionObject', actionObject,
+		RasPG.dev.validate.type('Actionable.registerAction.name', name, 'string')
+		RasPG.dev.validate.props('Actionable.registerAction.actionObject', actionObject,
 			{ callback: ['function', '(agent?: GameObject) => (void | string)'] },
 			{ predicate: ['function', '(agent?: GameObject) => boolean'] }
 		)
 		if (this.isAction(name))
-			throw RasPG.debug.exceptions.generalIDConflict('Actionable.#actions', name)
+			throw RasPG.dev.exceptions.GeneralIDConflict('Actionable.#actions', name)
 
 		this.#allActions.set(name, {
 			predicate: actionObject.predicate || undefined,
@@ -1884,8 +1896,8 @@ class Actionable extends Component {
 	static isAction(action, options) {
 		HookModule.run('Actionable.isAction', arguments, this)
 
-		RasPG.debug.validate.type('Actionable.isAction.action', action, 'string')
-		RasPG.debug.validate.props('Actionable.isAction.options', options, false, { enabledOnly: 'boolean' })
+		RasPG.dev.validate.type('Actionable.isAction.action', action, 'string')
+		RasPG.dev.validate.props('Actionable.isAction.options', options, false, { enabledOnly: 'boolean' })
 
 		if (options?.enabledOnly === false)
 			return this.#allActions.has(action)
@@ -1897,18 +1909,18 @@ class Actionable extends Component {
 	static disable(action) {
 		HookModule.run('before:Actionable.disable', arguments, this)
 
-		RasPG.debug.validate.type('Actionable.disable.action', action, 'string | string[]')
+		RasPG.dev.validate.type('Actionable.disable.action', action, 'string | string[]')
 
 		let ret = true
 		if (typeof(action) === 'string')
 			if (!Actionable.isAction(action))
-				return RasPG.debug.logs.elementNotRegisteredInCollection(action, 'Actionable.#actions')
+				return RasPG.dev.logs.elementNotRegisteredInCollection(action, 'Actionable.#actions')
 			else
 				this.#disabledActions.add(action)
 		else if (action instanceof Array)
 			for (const name of action)
 				if (!Actionable.isAction(name))
-					ret = RasPG.debug.logs.elementNotRegisteredInCollection(name, 'Actionable.#actions')
+					ret = RasPG.dev.logs.elementNotRegisteredInCollection(name, 'Actionable.#actions')
 				else
 					this.#disabledActions.add(name)
 
@@ -1921,22 +1933,22 @@ class Actionable extends Component {
 	static enable(action) {
 		HookModule.run('before:Actionable.enable', arguments, this)
 
-		RasPG.debug.validate.type('Actionable.enable.action', action, 'string | string[]')
+		RasPG.dev.validate.type('Actionable.enable.action', action, 'string | string[]')
 
 		let ret = true
 		if (typeof(action) === 'string')
 			if (!Actionable.isAction(action))
-				return RasPG.debug.logs.elementNotRegisteredInCollection(action, 'Actionable.#actions')
+				return RasPG.dev.logs.elementNotRegisteredInCollection(action, 'Actionable.#actions')
 			else if (!Actionable.#disabledActions.has(action))
-				return RasPG.debug.logs.elementNotRegisteredInCollection(action, 'Actionable.#disabledActions')
+				return RasPG.dev.logs.elementNotRegisteredInCollection(action, 'Actionable.#disabledActions')
 			else
 				this.#disabledActions.delete(action)
 		else if (action instanceof Array)
 			for (const name of action)
 				if (!Actionable.isAction(name))
-					ret = RasPG.debug.logs.elementNotRegisteredInCollection(name, 'Actionable.#actions')
+					ret = RasPG.dev.logs.elementNotRegisteredInCollection(name, 'Actionable.#actions')
 				else if (!Actionable.#disabledActions.has(name))
-					return RasPG.debug.logs.elementNotRegisteredInCollection(name, 'Actionable.#disabledActions')
+					return RasPG.dev.logs.elementNotRegisteredInCollection(name, 'Actionable.#disabledActions')
 				else
 					this.#disabledActions.delete(name)
 
@@ -1949,12 +1961,12 @@ class Actionable extends Component {
 	agentsCan(action) {
 		HookModule.run('before:Actionable.instance.agentsCan', arguments, this)
 
-		RasPG.debug.validate.type('Actionable.instance.agentsCan.action', action, ['string | string[]'])
+		RasPG.dev.validate.type('Actionable.instance.agentsCan.action', action, ['string | string[]'])
 
 		let ret = true
 		if (typeof(action) === 'string')
 			if (!Actionable.isAction(action))
-				return RasPG.debug.logs.elementNotRegisteredInCollection(action, 'Actionable.#actions')
+				return RasPG.dev.logs.elementNotRegisteredInCollection(action, 'Actionable.#actions')
 			else {
 				this.#actions.add(action)
 				EventModule.emit('actions.added', { object: this.parent, action })
@@ -1962,7 +1974,7 @@ class Actionable extends Component {
 		else if (action instanceof Array)
 			for (const name of action)
 				if (!Actionable.isAction(action))
-					ret = RasPG.debug.logs.elementNotRegisteredInCollection(name, 'Actionable.#actions')
+					ret = RasPG.dev.logs.elementNotRegisteredInCollection(name, 'Actionable.#actions')
 				else {
 					this.#actions.add(name)
 					EventModule.emit('actions.added', { object: this.parent, action: name })
@@ -1977,12 +1989,12 @@ class Actionable extends Component {
 	agentsCannot(action) {
 		HookModule.run('before:Actionable.instance.agentsCannot', arguments, this)
 
-		RasPG.debug.validate.type('Actionable.instance.agentsCannot.action', action, ['string | string[]'])
+		RasPG.dev.validate.type('Actionable.instance.agentsCannot.action', action, ['string | string[]'])
 
 		let ret = true
 		if (typeof(action) === 'string')
 			if (!Actionable.isAction(action))
-				return RasPG.debug.logs.elementNotRegisteredInCollection(action, 'Actionable.#actions')
+				return RasPG.dev.logs.elementNotRegisteredInCollection(action, 'Actionable.#actions')
 			else {
 				this.#actions.delete(action)
 				EventModule.emit('actions.removed', { object: this.parent, action })
@@ -1990,7 +2002,7 @@ class Actionable extends Component {
 		else if (action instanceof Array)
 			for (const name of action)
 				if (!Actionable.isAction(action))
-					ret = RasPG.debug.logs.elementNotRegisteredInCollection(name, 'Actionable.#actions')
+					ret = RasPG.dev.logs.elementNotRegisteredInCollection(name, 'Actionable.#actions')
 				else {
 					this.#actions.delete(name)
 					EventModule.emit('actions.removed', { object: this.parent, action: name })
@@ -2035,13 +2047,13 @@ class Agentive extends Component {
 	static registerAct(name, actObject) {
 		HookModule.run('before:Agentive.registerAct', arguments, this)
 
-		RasPG.debug.validate.type('Agentive.registerAct.name', name, 'string')
-		RasPG.debug.validate.props('Agentive.registerAct.actObject', actObject,
+		RasPG.dev.validate.type('Agentive.registerAct.name', name, 'string')
+		RasPG.dev.validate.props('Agentive.registerAct.actObject', actObject,
 			{ callback: ['function', '(target?: GameObject) => (void | string)'] },
 			{ predicate: ['function', '(target?: GameObject) => boolean'] }
 		)
 		if (this.isAct(name))
-			throw RasPG.debug.exceptions.generalIDConflict('Agentive.#acts', name)
+			throw RasPG.dev.exceptions.GeneralIDConflict('Agentive.#acts', name)
 
 		this.#allActs.set(name, {
 			predicate: actObject.predicate || undefined,
@@ -2069,8 +2081,8 @@ class Agentive extends Component {
 	static isAct(act, options) {
 		HookModule.run('Agentive.isAct', arguments, this)
 
-		RasPG.debug.validate.type('Agentive.isAct.act', act, 'string')
-		RasPG.debug.validate.props('Agentive.isAct.options', options, false, { enabledOnly: 'boolean' })
+		RasPG.dev.validate.type('Agentive.isAct.act', act, 'string')
+		RasPG.dev.validate.props('Agentive.isAct.options', options, false, { enabledOnly: 'boolean' })
 
 		if (options?.enabledOnly === false)
 			return this.#allActs.has(act)
@@ -2082,18 +2094,18 @@ class Agentive extends Component {
 	static disable(act) {
 		HookModule.run('before:Agentive.disable', arguments, this)
 
-		RasPG.debug.validate.type('Agentive.disable.act', act, 'string | string[]')
+		RasPG.dev.validate.type('Agentive.disable.act', act, 'string | string[]')
 
 		let ret = true
 		if (typeof(act) === 'string')
 			if (!Agentive.isAct(act))
-				return RasPG.debug.logs.elementNotRegisteredInCollection(act, 'Agentive.#acts')
+				return RasPG.dev.logs.elementNotRegisteredInCollection(act, 'Agentive.#acts')
 			else
 				this.#disabledActs.add(act)
 		else if (act instanceof Array)
 			for (const name of act)
 				if (!Agentive.isAct(name))
-					ret = RasPG.debug.logs.elementNotRegisteredInCollection(name, 'Agentive.#acts')
+					ret = RasPG.dev.logs.elementNotRegisteredInCollection(name, 'Agentive.#acts')
 				else
 					this.#disabledActs.add(name)
 
@@ -2106,22 +2118,22 @@ class Agentive extends Component {
 	static enable(act) {
 		HookModule.run('before:Agentive.enable', arguments, this)
 
-		RasPG.debug.validate.type('Agentive.enable.act', act, 'string | string[]')
+		RasPG.dev.validate.type('Agentive.enable.act', act, 'string | string[]')
 
 		let ret = true
 		if (typeof(act) === 'string')
 			if (!Agentive.isAct(act))
-				return RasPG.debug.logs.elementNotRegisteredInCollection(act, 'Agentive.#acts')
+				return RasPG.dev.logs.elementNotRegisteredInCollection(act, 'Agentive.#acts')
 			else if (!Agentive.#disabledActs.has(act))
-				return RasPG.debug.logs.elementNotRegisteredInCollection(act, 'Agentive.#disabledActs')
+				return RasPG.dev.logs.elementNotRegisteredInCollection(act, 'Agentive.#disabledActs')
 			else
 				this.#disabledActs.delete(act)
 		else if (act instanceof Array)
 			for (const name of act)
 				if (!Agentive.isAct(name))
-					ret = RasPG.debug.logs.elementNotRegisteredInCollection(name, 'Agentive.#acts')
+					ret = RasPG.dev.logs.elementNotRegisteredInCollection(name, 'Agentive.#acts')
 				else if (!Agentive.#disabledActs.has(name))
-					return RasPG.debug.logs.elementNotRegisteredInCollection(name, 'Agentive.#disabledActs')
+					return RasPG.dev.logs.elementNotRegisteredInCollection(name, 'Agentive.#disabledActs')
 				else
 					this.#disabledActs.delete(name)
 
@@ -2134,12 +2146,12 @@ class Agentive extends Component {
 	can(act) {
 		HookModule.run('before:Agentive.instance.can', arguments, this)
 
-		RasPG.debug.validate.type('Agentive.instance.can.act', act, ['string | string[]'])
+		RasPG.dev.validate.type('Agentive.instance.can.act', act, ['string | string[]'])
 
 		let ret = true
 		if (typeof(act) === 'string')
 			if (!Agentive.isAct(act))
-				return RasPG.debug.logs.elementNotRegisteredInCollection(act, 'Agentive.#acts')
+				return RasPG.dev.logs.elementNotRegisteredInCollection(act, 'Agentive.#acts')
 			else {
 				this.#acts.add(act)
 				EventModule.emit('acts.added', { object: this.parent, act })
@@ -2147,7 +2159,7 @@ class Agentive extends Component {
 		else if (act instanceof Array)
 			for (const name of act)
 				if (!Agentive.isAct(act))
-					ret = RasPG.debug.logs.elementNotRegisteredInCollection(name, 'Agentive.#acts')
+					ret = RasPG.dev.logs.elementNotRegisteredInCollection(name, 'Agentive.#acts')
 				else {
 					this.#acts.add(name)
 					EventModule.emit('acts.added', { object: this.parent, act: name })
@@ -2162,12 +2174,12 @@ class Agentive extends Component {
 	cannot(act) {
 		HookModule.run('before:Agentive.instance.cannot', arguments, this)
 
-		RasPG.debug.validate.type('Agentive.instance.cannot.act', act, ['string | string[]'])
+		RasPG.dev.validate.type('Agentive.instance.cannot.act', act, ['string | string[]'])
 
 		let ret = true
 		if (typeof(act) === 'string')
 			if (!Agentive.isAct(act))
-				return RasPG.debug.logs.elementNotRegisteredInCollection(act, 'Agentive.#acts')
+				return RasPG.dev.logs.elementNotRegisteredInCollection(act, 'Agentive.#acts')
 			else {
 				this.#acts.delete(act)
 				EventModule.emit('acts.removed', { object: this.parent, act })
@@ -2175,7 +2187,7 @@ class Agentive extends Component {
 		else if (act instanceof Array)
 			for (const name of act)
 				if (!Agentive.isAct(act))
-					ret = RasPG.debug.logs.elementNotRegisteredInCollection(name, 'Agentive.#acts')
+					ret = RasPG.dev.logs.elementNotRegisteredInCollection(name, 'Agentive.#acts')
 				else {
 					this.#acts.delete(name)
 					EventModule.emit('acts.removed', { object: this.parent, act: name })
