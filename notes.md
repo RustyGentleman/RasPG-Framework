@@ -45,6 +45,9 @@
 - implement Combatant
 - class prop types documentation
 - figure out how to implement locale into development
+- documentation sanity/consistency check (bracketed optionals(?), option parameters, wording)
+- declarative mode for easier GameObject declarations?
+- delta serialization on templated objects
 ## Core
 - turn counter and queued events
 	- turns, tick down to 0
@@ -60,11 +63,13 @@
 - addComponent -> make?
 - hasComponent -> is?
 - structured objects as templates (use deserialize to create instances)
-### Actionable
-- agents* -> actors*?
 ### Containing
 - implement empty and emptyInto
 - filter, weight/count capacity
+### Actionable
+- agents* -> actors*?
+### Agentive
+- intent, heuristic
 
 
 ## Stats & Combat
@@ -72,4 +77,6 @@
 - stat param: resolve StatType/Stat instance to name?
 
 # Doing
-- implementing Countable-dependent stuff in Perceptible?
+- make strings centralized
+- implement locale strings
+- RasPG shortcut registration

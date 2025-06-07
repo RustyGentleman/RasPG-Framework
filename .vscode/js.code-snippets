@@ -1,21 +1,21 @@
 {
-	"Exceptions": {
+	"RasPG: Exceptions": {
 		"scope": "javascript",
-		"prefix": "throw",
+		"prefix": "throww",
 		"body": [
-			"throw RasPG.debug.exceptions",
+			"throw RasPG.dev.exceptions",
 		],
 		"description": ""
 	},
-	"Loggers": {
+	"RasPG: Loggers": {
 		"scope": "javascript",
-		"prefix": "log",
+		"prefix": "logg",
 		"body": [
-			"RasPG.debug.logs",
+			"RasPG.dev.logs",
 		],
 		"description": ""
 	},
-	"Validate props": {
+	"RasPG: Validate props": {
 		"scope": "javascript",
 		"prefix": "valprops",
 		"body": [
@@ -25,7 +25,7 @@
 		],
 		"description": ""
 	},
-	"Validate types": {
+	"RasPG: Validate types": {
 		"scope": "javascript",
 		"prefix": "valtypes",
 		"body": [
@@ -35,7 +35,7 @@
 		],
 		"description": ""
 	},
-	"Validate type": {
+	"RasPG: Validate type": {
 		"scope": "javascript",
 		"prefix": "valtype",
 		"body": [
@@ -43,7 +43,7 @@
 		],
 		"description": ""
 	},
-	"Type enforcement": {
+	"RasPG: Type enforcement": {
 		"scope": "javascript",
 		"prefix": "enforce",
 		"body": [
@@ -53,7 +53,7 @@
 		],
 		"description": ""
 	},
-	"Method template": {
+	"RasPG: Method template": {
 		"scope": "javascript",
 		"prefix": "method",
 		"body": [
@@ -72,7 +72,7 @@
 		],
 		"description": ""
 	},
-	"Method template body": {
+	"RasPG: Method template body": {
 		"scope": "javascript",
 		"prefix": "body",
 		"body": [
@@ -84,7 +84,7 @@
 		],
 		"description": ""
 	},
-	"Emit custom event": {
+	"RasPG: Emit custom event": {
 		"scope": "javascript",
 		"prefix": "emit",
 		"body": [
@@ -95,7 +95,7 @@
 		],
 		"description": ""
 	},
-	"Emit property events": {
+	"RasPG: Emit property events": {
 		"scope": "javascript",
 		"prefix": "emitPropertyEvents",
 		"body": [

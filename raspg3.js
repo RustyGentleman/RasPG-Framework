@@ -166,6 +166,12 @@ class RasPG {
 						+'\nMaybe forgot to set, may be intentional')
 				return false
 			},
+			componentReferenceCollision: (objectID, reference, componentPresent, componentAdded) => {
+				if (RasPG.config.logWarnings)
+					console.warn(`[RasPG][componentReferenceCollision] Component "${componentAdded}" attempted to add reference "${reference}"${objectID? ` to object "${objectID}"` : ''}, which component "${componentPresent}" shares${objectID? ', and will be overwritten' : ''}`
+						+'\nLikely a conflict between extensions; consider manually changing one of the components\' reference, or using GameObject.instance.component(Component)')
+				return false
+			},
 		},
 		validate: {
 			type(path, value, typeSpec) {
@@ -302,6 +308,7 @@ class RasPG {
 		}
 
 		this.runtime.modules.set(name, module)
+		return this
 	}
 	/** Registers a class to the core framework. Usually for helper classes, helpful for safe string-to-class resolution.
 	 * @param {string} name
@@ -319,6 +326,7 @@ class RasPG {
 		}
 
 		this.runtime.classes.set(name, clss)
+		return this
 	}
 	/** Registers a component to the core framework.
 	 * @param {string} name
@@ -331,11 +339,16 @@ class RasPG {
 			throw RasPG.dev.exceptions.BrokenTypeEnforcement('RasPG.registerComponent.component', 'function')
 		if (this.runtime.components.has(name)) {
 			console.warn(`[RasPG - Core] Attempted to register component "${name}" more than once.`
-				+'\nNo clue here, honestly; unless also attempting to register an extension more than once')
+				+'\nMaybe component name conflict between extensions, or attempting to register an extension more than once')
 			return false
 		}
 
 		this.runtime.components.set(name, component)
+		if (component.reference) {
+			const existing = Array.from(RasPG.runtime.components.values()).find(e => e.reference === component.reference)
+			RasPG.dev.logs.componentReferenceCollision(false, component.reference, existing, component)
+		}
+		return this
 	}
 	/** Registers an extension to the core framework. Modules, classes and components must be registered separately.
 	 * @param {string} name
@@ -353,6 +366,7 @@ class RasPG {
 		}
 
 		this.runtime.extensions.set(name, metadata || {})
+		return this
 	}
 }
 
@@ -1018,6 +1032,8 @@ class GameObject {
 		instance.parent = this
 
 		if (instance.constructor.reference)
+			if (instance.constructor.reference in this)
+				RasPG.dev.logs.componentReferenceCollision(this.id, instance.constructor.reference, this[instance.constructor.reference].constructor.name, instance.constructor.name)
 			this[instance.constructor.reference] = instance
 
 		HookModule.run('after:GameObject.instance.addComponent', arguments, this)
