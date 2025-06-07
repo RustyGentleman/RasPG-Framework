@@ -258,6 +258,31 @@ class RasPG {
 					this.type(path+'.'+param, value, typeSpec)
 				return true
 			}
+		},
+		/** Returns the ID in the collection that matches the query, according to its prefix. `collection` can be Set or Map, if `.find()` mutations are present.
+		 *
+		 * 'instance:' searches for instance of templated object by ID.
+		 *
+		 * 'template:' searches for instance of templated object by template name.
+		 * @param {string} query
+		 * @param {string[]} collection
+		 */
+		resolveSoftsearch(query, collection) {
+			RasPG.debug.validate.types('RasPG.resolveSoftsearch', {
+				query: [query, 'string'],
+				collection: [collection, 'string[]'],
+			})
+
+			const [_, prefix, search] = query.match(/(\w+:)(.*)/)
+			switch(prefix) {
+				case 'instance:':
+					return collection.find(e => e.match(new RegExp(search + '_inst\d+$'))) || query
+				case 'template:':
+					for (const id of collection)
+						if (GameObject.find(id)?.isTagged('TEMPLATE:'+search))
+							return id
+			}
+			return query
 		}
 	}
 
@@ -921,7 +946,7 @@ class GameObject {
 		return new Set(this.#tags)
 	}
 
-	/** Returns the object with the given ID, if found, or `null`, if not found.
+	/** Returns the object with the given ID (strict), if found, or `null`, if not found.
 	 * @param {string} id Convention: all lowercase, no spaces.
 	 */
 	static find(id) {
@@ -1715,7 +1740,7 @@ class Containing extends Component {
 			const actualObject = GameObject.resolve(object, { component: Tangible, operation: 'Container.instance.add' })
 			if (!actualObject)
 				return actualObject
-			if (this.has(actualObject))
+			if (this.#contents.has(actualObject.id))
 				return this
 			if (options?.ignoreFilter !== true && this.#filter && !this.#filter(actualObject))
 				return this
@@ -1740,7 +1765,8 @@ class Containing extends Component {
 	remove(object, passOn) {
 		HookModule.run('before:Container.instance.remove', arguments, this)
 
-		const actualObject = GameObject.resolve(object, { component: Tangible, operation: 'Container.instance.remove' })
+		const actualID = RasPG.dev.resolveSoftsearch(object, Array.from(this.#contents))
+		const actualObject = GameObject.resolve(actualID, { component: Tangible, operation: 'Container.instance.remove' })
 
 		if (!actualObject)
 			return this
@@ -1779,7 +1805,8 @@ class Containing extends Component {
 	has(object) {
 		HookModule.run('Container.instance.has', arguments, this)
 
-		const actualObject = GameObject.resolve(object, { component: Tangible, operation: 'Container.instance.has' })
+		const actualID = RasPG.dev.resolveSoftsearch(object, Array.from(this.#contents))
+		const actualObject = GameObject.resolve(actualID, { component: Tangible, operation: 'Container.instance.has' })
 		if (!actualObject)
 			return actualObject
 
