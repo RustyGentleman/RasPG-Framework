@@ -100,9 +100,9 @@ class RasPG {
 	static runtime = {
 		state: {
 			/** @type {{
-			 * push: (val: 'initializing' | 'serializing' | 'running' | 'instantiatingTemplate') => void,
-			 * get : () => 'initializing' | 'serializing' | 'running' | 'instantiatingTemplate',
-			 * pop : () => 'initializing' | 'serializing' | 'running' | 'instantiatingTemplate'
+			 * push: (val: 'initializing'|'running'|'serializing'|'templating'|'instantiating') => void,
+			 * get : () => 'initializing'|'running'|'serializing'|'templating'|'instantiating',
+			 * pop : () => 'initializing'|'running'|'serializing'|'templating'|'instantiating'
 			 * }} */
 			inner: this.utils.constructors.valueStack('initializing'),
 		},
@@ -777,6 +777,62 @@ class SubTextModule {
 		return string
 	}
 } RasPG.registerModule('SubTextModule', SubTextModule)
+class TemplateModule {
+	/** @type {{name: string, serialized: {id: string, tags: string[], components: {}}, constructor: function, instances: number}} */
+	static #all = new Map()
+
+	static get all() {
+		return new Map(this.#all)
+	}
+
+	/** Instantiates an object from a template and returns it. Instance will be tagged with `'TEMPLATE:<name>'`.
+	 * @param {string} name
+	 */
+	static instantiate(name) {
+		HookModule.run('before:Template.instantiate', arguments, this)
+
+		RasPG.dev.validate.type('Template.instantiate.name', name, 'string')
+		if (!this.#all.has(name))
+			return RasPG.dev.logs.elementNotRegisteredInCollection(name, 'Template.#all')
+
+		RasPG.runtime.state.inner.push('instantiating')
+
+		const registered = this.#all.get(name)
+		registered.template.id += '_inst' + registered.instances++
+		const instance = registered.proto.deserializer(registered.template)
+		instance.tag('TEMPLATE:'+name)
+		registered.template.id = registered.template.id.replace(/_inst\d+$/, '')
+
+		RasPG.runtime.state.inner.pop()
+
+		EventModule.emit('template.instantiated', {
+			object: instance,
+			name,
+			instance: registered.instances-1
+		})
+		HookModule.run('after:Template.instantiate', arguments, this)
+		return instance
+	}
+	/** Serializes and registers a GameObject (or subclass) instance as a template under the given name. It is recommended to set `register: false` when creating a GameObject to serve as a template.
+	 * @param {string} name
+	 * @param {Object} object
+	 */
+	static register(name, object) {
+		HookModule.run('before:Template.register', arguments, this)
+
+		RasPG.dev.validate.type('Template.constructor.id', name, 'string')
+		if (TemplateModule.#all.has(name))
+			throw RasPG.dev.exceptions.GeneralIDConflict('Template.#all', name)
+
+		RasPG.runtime.state.inner.push('serializing')
+		const serialized = GameObject.serializer(object)
+		RasPG.runtime.state.inner.pop()
+
+		TemplateModule.#all.set(name, { name, serialized, constructor: object.constructor, instances: 0 })
+
+		HookModule.run('after:Template.register', arguments, this)
+	}
+} RasPG.registerModule('Template', TemplateModule)
 
 //# Classes
 /**
@@ -872,7 +928,9 @@ class GameObject {
 		HookModule.run('GameObject.find', arguments, this)
 		return this.#all.find(e => e.id === id) || null
 	}
-	/** Attempts to resolve an object ID to an instance. Optionally checks if it inherits from a given class, and/ir if it contains a given component or set of components. If `id` is a string with the 'template:' prefix, will instantiate the given template and return it, if found.
+	/** Attempts to resolve an object ID (soft*) to an instance. Optionally checks if it inherits from a given class, and/ir if it contains a given component or set of components.
+	 *
+	 * \*: If `id` is a string with the 'instantiate:' prefix, will instantiate the given template and return it, if found.
 	 *
 	 * Returns a GameObject instance if either the ID is resolved or the first parameter is already an instance, and the requested checks are passed. Returns `null` if the ID does not resolve to an object. Returns `false` if any checks fail.
 	 * @param {string | GameObject} id
@@ -885,8 +943,8 @@ class GameObject {
 		if (typeof(id) === 'object' && id instanceof this)
 			object = id
 		else if (typeof(id) === 'string') {
-			if (id.startsWith('template:'))
-				object = Template.instantiate(id.slice(9))
+			if (id.startsWith('instantiate:'))
+				object = TemplateModule.instantiate(id.slice(12))
 			else
 				object = this.find(id)
 			if (!object) {
@@ -1051,105 +1109,7 @@ class Component {
 		return this.constructor.serializer(this)
 	}
 } RasPG.registerClass('Component', Component)
-class Template extends GameObject {
-	static #all = new Map()
 
-	/**
-	 * @param {string} id Convention: all lowercase, no spaces.
-	 * @param {{tags?: string[], components?: Array<typeof Component | Component | string>, register?: boolean}} [options]
-	 * @param {string[]} [options.tags] Tags to be added
-	 * @param {Array<typeof Component | Component | string>} [options.components] Components to be added
-	 */
-	constructor(id, options) {
-		HookModule.run('after:Template.constructor', arguments, undefined)
-
-		RasPG.debug.validate.type('Template.constructor.id', id, 'string')
-		RasPG.debug.validate.props('Template.constructor.options', options, false, {
-			tags: 'string[]',
-			components: ['Array<object | function | string>', 'Array<typeof Component | Component | string>'],
-			register: 'boolean'
-		})
-		if (Template.#all.has(id))
-			throw RasPG.debug.exceptions.generalIDConflict('Template.#all', id)
-
-		super(id, Object.assign(options, {register: false}))
-
-		HookModule.run('after:Template.constructor', arguments, this)
-	}
-
-	static get all() {
-		return new Map(this.#all)
-	}
-
-	/** Instantiates an object from a template and returns it.
-	 * @param {string} name
-	 */
-	static instantiate(name) {
-		HookModule.run('before:Template.instantiate', arguments, this)
-
-		RasPG.debug.validate.type('Template.instantiate.name', name, 'string')
-		if (!this.#all.has(name))
-			return RasPG.debug.logs.elementNotRegisteredInCollection(name, 'Template.#all')
-
-		RasPG.runtime.state.inner.push('instantiatingTemplate')
-
-		const registered = this.#all.get(name)
-		registered.template.id += '_inst' + registered.instances++
-		const instance = registered.proto.deserializer(registered.template)
-		registered.template.id = registered.template.id.replace(/_inst\d+$/, '')
-
-		RasPG.runtime.state.inner.pop()
-
-		EventModule.emit('template.instantiated', {
-			object: instance,
-			name,
-			template: registered.template,
-			instance: registered.instances-1
-		})
-		HookModule.run('after:Template.instantiate', arguments, this)
-		return instance
-	}
-	/** Serializes and registers a GameObject (or subclass) instance as a template under the given name.
-	 * @param {string} name
-	 */
-	static registerAs(name, object) {
-		HookModule.run('before:Template.registerAs', arguments, this)
-
-		RasPG.debug.validate.types('Template.registerAs', {
-			name: [name, 'string'],
-			object: [object, 'GameObject']
-		})
-		if (this.#all.has(name))
-			throw RasPG.debug.exceptions.generalIDConflict('Template.#all', name)
-
-		RasPG.runtime.state.inner.push('serializing')
-		this.#all.set(name, {
-			template: object.serialize(),
-			proto: object.constructor,
-			instances: 0
-		})
-		RasPG.runtime.state.inner.pop()
-
-		HookModule.run('after:Template.registerAs', arguments, this)
-	}
-	saveAs(name) {
-		HookModule.run('before:Template.instance.saveAs', arguments, this)
-
-		RasPG.debug.validate.type('Template.instantiate.name', name, 'string')
-		if (Template.#all.has(name))
-			throw RasPG.debug.exceptions.generalIDConflict(('Template.#all', name))
-
-		RasPG.runtime.state.inner.push('serializing')
-		Template.#all.set(name, {
-			template: this.serialize(),
-			proto: GameObject,
-			instances: 0
-		})
-		RasPG.runtime.state.inner.pop()
-
-		HookModule.run('after:Template.instance.saveAs', arguments, this)
-	}
-} RasPG.registerClass('Template', Template)
 
 //# Components
 class Stateful extends Component {
