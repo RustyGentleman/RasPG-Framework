@@ -410,9 +410,8 @@ class EventModule {
 	static on(event, callback, options) {
 		HookModule.run('before:EventModule.on', arguments, this)
 
-		if (!this.#listeners.has(event))
-			this.#listeners.set(event, new Set())
-		this.#listeners.get(event).add({ event, callback, owner: options.owner || undefined, once: options.once || false })
+		this.#listeners.get(event)?? this.#listeners.set(event, new Set())
+			.add({ event, callback, owner: options.owner || undefined, once: options.once || false })
 
 		HookModule.run('after:EventModule.on', arguments, this)
 	}
@@ -546,10 +545,9 @@ class HookModule {
 	 * @param {string} hook Convention: no spaces, camelCase.
 	 * @param {(args: Array<any>, object: Object) => void} callback
 	 */
-	static register(hook, callback) {
-		if (!this.#hooks.has(hook))
-			this.#hooks.set(hook, new Set())
-		this.#hooks.get(hook).add(callback)
+	static attach(hook, callback) {
+		this.#hooks.get(hook)?? this.#hooks.set(hook, new Set())
+			.add(callback)
 	}
 	/** Runs all registered callbacks on a given hook.
 	 * @param {string} hook Convention: no spaces, camelCase.
