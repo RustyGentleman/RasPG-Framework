@@ -257,9 +257,9 @@ class RasPG {
 			props(path, object, required, optional={}) {
 				if (required === false && object === undefined)
 					return true
-				if (typeof(object) !== 'object')
+				if (typeof object !== 'object')
 					if (RasPG.config.parameterTypeEnforcement)
-						throw RasPG.dev.exceptions.BrokenTypeEnforcement(path.match(/[^\.]+$/), typeof(object), 'object')
+						throw RasPG.dev.exceptions.BrokenTypeEnforcement(path.match(/[^\.]+$/), typeof object, 'object')
 					else return false
 				for (const [prop, typeSpec] of Object.entries(required)) {
 					if (!(prop in object))
@@ -319,9 +319,9 @@ class RasPG {
 	 * @param {Function} module
 	 */
 	static registerModule(name, module) {
-		if (typeof(name) !== 'string')
+		if (typeof name !== 'string')
 			throw RasPG.dev.exceptions.BrokenTypeEnforcement('RasPG.registerModule.name', 'string')
-		if (typeof(module) !== 'function')
+		if (typeof module !== 'function')
 			throw RasPG.dev.exceptions.BrokenTypeEnforcement('RasPG.registerModule.module', 'function')
 		if (this.runtime.modules.has(name)) {
 			console.warn(`[RasPG - Core] Attempted to register module "${name}" more than once.`
@@ -337,9 +337,9 @@ class RasPG {
 	 * @param {Function} class
 	 */
 	static registerClass(name, clss) {
-		if (typeof(name) !== 'string')
+		if (typeof name !== 'string')
 			throw RasPG.dev.exceptions.BrokenTypeEnforcement('RasPG.registerClass.name', 'string')
-		if (typeof(clss) !== 'function')
+		if (typeof clss !== 'function')
 			throw RasPG.dev.exceptions.BrokenTypeEnforcement('RasPG.registerClass.clss', 'function')
 		if (this.runtime.classes.has(name)) {
 			console.warn(`[RasPG - Core] Attempted to register class "${name}" more than once.`
@@ -355,9 +355,9 @@ class RasPG {
 	 * @param {Function} component
 	 */
 	static registerComponent(name, component) {
-		if (typeof(name) !== 'string')
+		if (typeof name !== 'string')
 			throw RasPG.dev.exceptions.BrokenTypeEnforcement('RasPG.registerComponent.name', 'string')
-		if (typeof(component) !== 'function')
+		if (typeof component !== 'function')
 			throw RasPG.dev.exceptions.BrokenTypeEnforcement('RasPG.registerComponent.component', 'function')
 		if (this.runtime.components.has(name)) {
 			console.warn(`[RasPG - Core] Attempted to register component "${name}" more than once.`
@@ -377,9 +377,9 @@ class RasPG {
 	 * @param {{ description?: string, author?: string, version?: string, repository?: string, minimumCoreVersion?: string }} metadata
 	 */
 	static registerExtension(name, metadata) {
-		if (typeof(name) !== 'string')
+		if (typeof name !== 'string')
 			throw RasPG.dev.exceptions.BrokenTypeEnforcement('RasPG.registerExtension.name', 'string')
-		if (typeof(metadata) !== 'object')
+		if (typeof metadata !== 'object')
 			throw RasPG.dev.exceptions.BrokenTypeEnforcement('RasPG.registerExtension.metadata', 'object')
 		if (this.runtime.extensions.has(name)) {
 			console.warn(`[RasPG - Core] Attempted to register extension "${name}" more than once.`
@@ -502,7 +502,7 @@ class EventModule {
 				previous: data.previous,
 				current: data.current })
 		// Numeric values
-		if (typeof(data.previous) === 'number' && typeof(data.current) === 'number')
+		if (typeof data.previous === 'number' && typeof data.current === 'number')
 			//? Property value increased
 			if (data.current > data.previous)
 				EventModule.emit(`${prefix}${data.property}.increased`, {
@@ -518,7 +518,7 @@ class EventModule {
 					previous: data.previous,
 					current: data.current })
 		//? Boolean variable
-		else if (typeof(data.previous) === 'boolean' && typeof(data.current) === 'boolean')
+		else if (typeof data.previous === 'boolean' && typeof data.current === 'boolean')
 			//* Variable value not toggled
 			if (data.previous === data.current)
 				EventModule.emit(`${prefix}${data.property}.toggled.not`, {
@@ -1003,9 +1003,9 @@ class GameObject {
 		HookModule.run('GameObject.resolve', arguments, this)
 		let object
 
-		if (typeof(id) === 'object' && id instanceof this)
+		if (typeof id === 'object' && id instanceof this)
 			object = id
-		else if (typeof(id) === 'string') {
+		else if (typeof id === 'string') {
 			if (id.startsWith('instantiate:'))
 				object = TemplateModule.instantiate(id.slice(12))
 			else
@@ -1019,7 +1019,7 @@ class GameObject {
 		if (!object)
 			throw RasPG.dev.exceptions.NotGameObject()
 
-		if (options?.proto && typeof(options.proto) === 'function' && options.proto.isPrototypeOf(object))
+		if (options?.proto && typeof options.proto === 'function' && options.proto.isPrototypeOf(object))
 			return RasPG.dev.logs.incorrectPrototype(id, options.proto.name)
 		if (options?.components)
 			for (const component of options.components)
@@ -1158,11 +1158,11 @@ class Component {
 	static resolve(component) {
 		HookModule.run('Component.resolve', arguments, this)
 
-		if (typeof(component) === 'function' && this.isPrototypeOf(component))
+		if (typeof component === 'function' && this.isPrototypeOf(component))
 			return component
-		if (typeof(component) === 'string' && this.isPrototypeOf(RasPG.runtime.components.get(component)))
+		if (typeof component === 'string' && this.isPrototypeOf(RasPG.runtime.components.get(component)))
 			return RasPG.runtime.components.get(component)
-		if (typeof(component) === 'object' && (component instanceof this))
+		if (typeof component === 'object' && (component instanceof this))
 			return component.constructor
 
 		throw RasPG.dev.exceptions.NotComponent()
@@ -1281,7 +1281,7 @@ class Stringful extends Component {
 	static serializer = function(instance) {
 		return Array.from(instance.strings)
 			.map(e => {
-				if (typeof(e) === 'function')
+				if (typeof e === 'function')
 					if (RasPG.config.serializeFunctions)
 						return 'SERIALIZED_FUNCTION:' + e.toString()
 					else
@@ -1292,9 +1292,9 @@ class Stringful extends Component {
 	static deserializer = function(data) {
 		const instance = new Stringful()
 		for (const [key, string] of data)
-			if (typeof(string) === 'function')
+			if (typeof string === 'function')
 				instance.set(key, string)
-			else if (typeof(string) === 'string')
+			else if (typeof string === 'string')
 				if (string.startsWith('SERIALIZED_FUNCTION:'))
 					instance.set(key, eval(string.slice(20)))
 				else if (string !== 'SKIP')
@@ -1380,7 +1380,7 @@ class Stringful extends Component {
 			|| this.#strings.get(RasPG.config.defaultLocale + '.' + rawKey)
 			|| Stringful.get([RasPG.config.locale, parentID, rawKey].join('.'))
 			|| Stringful.get([RasPG.config.defaultLocale, parentID, rawKey].join('.'))
-		if (typeof(string) === 'function')
+		if (typeof string === 'function')
 			string = string()
 
 		return string
@@ -1441,7 +1441,7 @@ class Perceptible extends Component {
 		for (const [sense, map] of instance.perceptions.entries()) {
 			data[sense] = {}
 			for (const [context, perception] of map.entries())
-				if (typeof(perception) === 'function')
+				if (typeof perception === 'function')
 					if (RasPG.config.serializeFunctions)
 						data[sense][context] = 'SERIALIZED_FUNCTION:' + perception.toString()
 					else
@@ -1455,7 +1455,7 @@ class Perceptible extends Component {
 		const instance = new Perceptible()
 		for (const sense in data)
 			for (const context in data[sense])
-				if (typeof(data[sense][context]) === 'string')
+				if (typeof data[sense][context] === 'string')
 					if (data[sense][context].startsWith('SERIALIZED_FUNCTION:'))
 						data[sense][context] = eval(data[sense][context].slice(20))
 					else if (data[sense][context] === 'SKIP')
@@ -1559,12 +1559,12 @@ class Perceptible extends Component {
 		HookModule.run('before:Perceptible.instance.definePerceptions', arguments, this)
 
 		for (const sense in options) {
-			if (typeof(sense) !== 'string')
+			if (typeof sense !== 'string')
 				throw RasPG.dev.exceptions.brokenEnforcedType('Perceptible.instance.definePerceptions.sense', 'string')
 			for (const context in options[sense]) {
-				if (typeof(context) !== 'string')
+				if (typeof context !== 'string')
 					throw RasPG.dev.exceptions.brokenEnforcedType('Perceptible.instance.definePerceptions.context', 'string')
-				if (typeof(options[sense][context]) !== 'string' && typeof(options[sense][context]) !== 'function')
+				if (typeof options[sense][context] !== 'string' && typeof options[sense][context] !== 'function')
 					throw RasPG.dev.exceptions.brokenEnforcedType('Perceptible.instance.definePerceptions.sense[context]', 'string | () => string')
 				this.setPerception(sense, context, options[sense][context])
 			}
@@ -1614,7 +1614,7 @@ class Perceptible extends Component {
 		const perceptions = this.#perceptions.get(sense)
 		let found
 		let realContext = context
-		if (typeof(context) === 'string')
+		if (typeof context === 'string')
 			found = perceptions.get(context)
 		else if (context instanceof Array)
 			for (const context of context)
@@ -1625,7 +1625,7 @@ class Perceptible extends Component {
 				}
 		if (!found)
 			return null
-		if (typeof(found) === 'function')
+		if (typeof found === 'function')
 			found = found(sensor, this.parent)
 
 		EventModule.emit(`perceptions.perceived`, {
@@ -1872,7 +1872,7 @@ class Containing extends Component {
 		HookModule.run('before:Container.instance.remove', arguments, this)
 
 		let actualID = object
-		if (typeof(object) === 'string')
+		if (typeof object === 'string')
 			actualID = RasPG.dev.resolveSoftsearch(object, Array.from(this.#contents))
 		const actualObject = GameObject.resolve(actualID, { component: Tangible, operation: 'Container.instance.remove' })
 
@@ -1914,7 +1914,7 @@ class Containing extends Component {
 		HookModule.run('Container.instance.has', arguments, this)
 
 		let actualID = object
-		if (typeof(object) === 'string')
+		if (typeof object === 'string')
 			actualID = RasPG.dev.resolveSoftsearch(object, Array.from(this.#contents))
 		const actualObject = GameObject.resolve(actualID, { component: Tangible, operation: 'Container.instance.has' })
 		if (!actualObject)
@@ -2009,7 +2009,7 @@ class Actionable extends Component {
 		RasPG.dev.validate.type('Actionable.disable.action', action, 'string | string[]')
 
 		let ret = true
-		if (typeof(action) === 'string')
+		if (typeof action === 'string')
 			if (!Actionable.isAction(action))
 				return RasPG.dev.logs.elementNotRegisteredInCollection(action, 'Actionable.#actions')
 			else
@@ -2033,7 +2033,7 @@ class Actionable extends Component {
 		RasPG.dev.validate.type('Actionable.enable.action', action, 'string | string[]')
 
 		let ret = true
-		if (typeof(action) === 'string')
+		if (typeof action === 'string')
 			if (!Actionable.isAction(action))
 				return RasPG.dev.logs.elementNotRegisteredInCollection(action, 'Actionable.#actions')
 			else if (!Actionable.#disabledActions.has(action))
@@ -2061,7 +2061,7 @@ class Actionable extends Component {
 		RasPG.dev.validate.type('Actionable.instance.agentsCan.action', action, ['string | string[]'])
 
 		let ret = true
-		if (typeof(action) === 'string')
+		if (typeof action === 'string')
 			if (!Actionable.isAction(action))
 				return RasPG.dev.logs.elementNotRegisteredInCollection(action, 'Actionable.#actions')
 			else {
@@ -2089,7 +2089,7 @@ class Actionable extends Component {
 		RasPG.dev.validate.type('Actionable.instance.agentsCannot.action', action, ['string | string[]'])
 
 		let ret = true
-		if (typeof(action) === 'string')
+		if (typeof action === 'string')
 			if (!Actionable.isAction(action))
 				return RasPG.dev.logs.elementNotRegisteredInCollection(action, 'Actionable.#actions')
 			else {
@@ -2194,7 +2194,7 @@ class Agentive extends Component {
 		RasPG.dev.validate.type('Agentive.disable.act', act, 'string | string[]')
 
 		let ret = true
-		if (typeof(act) === 'string')
+		if (typeof act === 'string')
 			if (!Agentive.isAct(act))
 				return RasPG.dev.logs.elementNotRegisteredInCollection(act, 'Agentive.#acts')
 			else
@@ -2218,7 +2218,7 @@ class Agentive extends Component {
 		RasPG.dev.validate.type('Agentive.enable.act', act, 'string | string[]')
 
 		let ret = true
-		if (typeof(act) === 'string')
+		if (typeof act === 'string')
 			if (!Agentive.isAct(act))
 				return RasPG.dev.logs.elementNotRegisteredInCollection(act, 'Agentive.#acts')
 			else if (!Agentive.#disabledActs.has(act))
@@ -2246,7 +2246,7 @@ class Agentive extends Component {
 		RasPG.dev.validate.type('Agentive.instance.can.act', act, ['string | string[]'])
 
 		let ret = true
-		if (typeof(act) === 'string')
+		if (typeof act === 'string')
 			if (!Agentive.isAct(act))
 				return RasPG.dev.logs.elementNotRegisteredInCollection(act, 'Agentive.#acts')
 			else {
@@ -2274,7 +2274,7 @@ class Agentive extends Component {
 		RasPG.dev.validate.type('Agentive.instance.cannot.act', act, ['string | string[]'])
 
 		let ret = true
-		if (typeof(act) === 'string')
+		if (typeof act === 'string')
 			if (!Agentive.isAct(act))
 				return RasPG.dev.logs.elementNotRegisteredInCollection(act, 'Agentive.#acts')
 			else {

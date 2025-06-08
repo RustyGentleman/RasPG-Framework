@@ -72,7 +72,7 @@
 		"scope": "javascript",
 		"prefix": "body",
 		"body": [
-			"HookModule.run('before:$1.$2', arguments, this)\n",
+			"HookModule.run('before:$1.$2', arguments, this)",
 			"// Guard clauses",
 			"$0",
 			"HookModule.run('after:$1.$2', arguments, this)",

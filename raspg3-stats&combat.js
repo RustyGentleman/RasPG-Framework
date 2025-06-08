@@ -75,9 +75,9 @@ class StatType {
 	static resolve(type) {
 		HookModule.run('StatType.resolve', arguments, this)
 
-		if (typeof(type) === 'object' && type instanceof StatType)
+		if (typeof type === 'object' && type instanceof StatType)
 			return type
-		if (typeof(type) === 'string') {
+		if (typeof type === 'string') {
 			const actualType = this.find(type)
 			if (!actualType) {
 				RasPG.debug.logs.elementNotRegisteredInCollection(type, 'StatType.#all')
