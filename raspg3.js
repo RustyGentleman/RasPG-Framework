@@ -1307,7 +1307,7 @@ class Stringful extends Component {
 	}
 	/** Gets the global string correlated with the given key.
 	 *
-	 * If not preffixed with a locale ID (will check first part of domain and check against identifiers for available locales), will search in current locale first, but fall back on the default locale if not found.
+	 * If not prefixed with a locale ID (will check first part of domain and check against identifiers for available locales), will search in current locale first, but fall back on the default locale if not found.
 	 */
 	static get(key) {
 		HookModule.run('Stringful.global.get', arguments, this)
@@ -1321,7 +1321,7 @@ class Stringful extends Component {
 
 		return string
 	}
-	/** Sets the global string correlated with the given key. Can be a function that returns a string. Will preffix with the current locale ID as a domain, if not already preffixed (will check first part of domain and check against identifiers for available locales).
+	/** Sets the global string correlated with the given key. Can be a function that returns a string. Will prefix with the current locale ID as a domain, if not already prefixed (will check first part of domain and check against identifiers for available locales).
 	 * @param {string} key Convention: no spaces, camelCase.
 	 * @param {string | () => string} string
 	 */
@@ -1345,7 +1345,7 @@ class Stringful extends Component {
 		HookModule.run('after:Stringful.global.set', arguments, this)
 		return true
 	}
-	/** Defines global string in bulk. Returns the component instance back for further operations. Will preffix with the identifier for the current locale, if not already preffixed (will check first part of domain and check against identifiers for available locales).
+	/** Defines global string in bulk. Returns the component instance back for further operations. Will prefix with the identifier for the current locale, if not already prefixed (will check first part of domain and check against identifiers for available locales).
 	 * @param {{[key: string]: string | () => string}} options 
 	 */
 	static define(options) {
@@ -1359,7 +1359,7 @@ class Stringful extends Component {
 	}
 	/** Gets the string correlated with the given key.
 	 *
-	 * If not preffixed with a locale ID, will search in current locale first, but fall back on the default locale if not found.
+	 * If not prefixed with a locale ID, will search in current locale first, but fall back on the default locale if not found.
 	 *
 	 * If not found on the object, will search global string registry for pattern 'locale.objectid.*', following the same logic as above.
 	 * @param {string} key Convention: dot-separated domains, no spaces, camelCase ('en.action.jumpOn.successful')
@@ -1383,7 +1383,7 @@ class Stringful extends Component {
 	}
 	/** Sets the string correlated with the given key. Can be a function that returns a string.
 	 *
-	 * If not already preffixed with a locale ID, will preffix with current locale ID.
+	 * If not already prefixed with a locale ID, will prefix with current locale ID.
 	 * @param {string} key Convention: no spaces, camelCase.
 	 * @param {string | () => string} string
 	 */
@@ -1416,7 +1416,7 @@ class Stringful extends Component {
 	}
 	/** Defines strings in bulk. Returns the component instance back for further operations.
 	 *
-	 * If not already preffixed with a locale ID, will preffix with current locale ID.
+	 * If not already prefixed with a locale ID, will prefix with current locale ID.
 	 * @param {{[key: string]: string | () => string}} options 
 	 */
 	define(options) {
