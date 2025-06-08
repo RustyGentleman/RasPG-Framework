@@ -543,6 +543,10 @@ class HookModule {
 
 	/** Attaches a callback to a given hook.
 	 *
+	 * Notes:
+	 * - Functions and methods that mutate or alter data run hooks before and after operations, prefixed with `before:` and `after:` respectively.
+	 * - `after:` hooks are often not fired if the function returns early, indicating no-op.
+	 *
 	 * !!!WARNING!!! - Hooks that depend on being able to mutate a function's passed `arguments` object will not work under 'use strict', or in functions with rest arguments (`...args`) or default values (`function(param=1)`).
 	 * @param {string} hook Convention: no spaces, camelCase.
 	 * @param {(args: Array<any>, object: Object) => void} callback
