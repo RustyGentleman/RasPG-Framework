@@ -1,6 +1,7 @@
 const { test } = require('uvu')
 const assert = require('uvu/assert')
 const {
+	RasPG,
 	GameObject,
 	ContextModule, SubTextModule,
 	Stateful, Stringful, Perceptible, Tangible, Countable, Containing, Actionable, Agentive
@@ -75,15 +76,18 @@ test('Stateful defines and mutates state', () => {
 	obj._states.create('mana', 50)
 	assert.is(obj._states.get('mana'), 50)
 })
-test('Stringful stores and retrieves strings', () => {
+test('Stringful stores and retrieves strings respecting locale', () => {
+	RasPG.config.availableLocales.push('fr')
 	const obj = createTestObject('test_Stringful')
 	obj._strings.define({
-		'en.name': 'orb',
-		'en.description': 'A glowing orb.'
+		'name': 'orb',
+		'en.description': 'A glowing orb.',
+		'fr.article': 'la'
 	})
 
 	assert.is(obj._strings.get('en.name'), 'orb')
 	assert.is(obj._strings.get('en.description'), 'A glowing orb.')
+	assert.is(obj._strings.get('fr.article'), 'la')
 })
 test('Perceptible defines and sets perceptions', () => {
 	const obj = createTestObject('test_Perceptible')

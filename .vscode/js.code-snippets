@@ -19,7 +19,7 @@
 		"scope": "javascript",
 		"prefix": "valprops",
 		"body": [
-			"RasPG.debug.validate.props('$1.$2', $2, {",
+			"RasPG.dev.validate.props('$1.$2', $2, {",
 			"\t$3: '$4'",
 			"})",
 		],
@@ -29,7 +29,7 @@
 		"scope": "javascript",
 		"prefix": "valtypes",
 		"body": [
-			"RasPG.debug.validate.types('$1', {",
+			"RasPG.dev.validate.types('$1', {",
 			"\t$2: [$2, '$3'],",
 			"})",
 		],
@@ -39,7 +39,7 @@
 		"scope": "javascript",
 		"prefix": "valtype",
 		"body": [
-			"RasPG.debug.validate.type('$1.$2', $2, '$3')",
+			"RasPG.dev.validate.type('$1.$2', $2, '$3')",
 		],
 		"description": ""
 	},
@@ -48,7 +48,7 @@
 		"prefix": "enforce",
 		"body": [
 			"if (typeof($1) !== '$2')",
-			"\tthrow RasPG.debug.exceptions.brokenEnforcedType('$3.$4.$1', '$2')",
+			"\tthrow RasPG.dev.exceptions.brokenEnforcedType('$3.$4.$1', '$2')",
 			"$0",
 		],
 		"description": ""

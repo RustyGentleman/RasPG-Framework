@@ -77,6 +77,6 @@
 - stat param: resolve StatType/Stat instance to name?
 
 # Doing
-- make strings centralized
-- implement locale strings
-- RasPG shortcut registration
+- Tangible nested container chain checking
+- Perceptible nouns + adjectives for matching
+- turn and event queue system

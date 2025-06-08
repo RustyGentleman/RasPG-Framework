@@ -294,7 +294,7 @@ class RasPG {
 		 * @param {string[]} collection
 		 */
 		resolveSoftsearch(query, collection) {
-			RasPG.debug.validate.types('RasPG.resolveSoftsearch', {
+			RasPG.dev.validate.types('RasPG.resolveSoftsearch', {
 				query: [query, 'string'],
 				collection: [collection, 'string[]'],
 			})
@@ -1867,7 +1867,9 @@ class Containing extends Component {
 	remove(object, passOn) {
 		HookModule.run('before:Container.instance.remove', arguments, this)
 
-		const actualID = RasPG.dev.resolveSoftsearch(object, Array.from(this.#contents))
+		let actualID = object
+		if (typeof(object) === 'string')
+			actualID = RasPG.dev.resolveSoftsearch(object, Array.from(this.#contents))
 		const actualObject = GameObject.resolve(actualID, { component: Tangible, operation: 'Container.instance.remove' })
 
 		if (!actualObject)
@@ -1907,7 +1909,9 @@ class Containing extends Component {
 	has(object) {
 		HookModule.run('Container.instance.has', arguments, this)
 
-		const actualID = RasPG.dev.resolveSoftsearch(object, Array.from(this.#contents))
+		let actualID = object
+		if (typeof(object) === 'string')
+			actualID = RasPG.dev.resolveSoftsearch(object, Array.from(this.#contents))
 		const actualObject = GameObject.resolve(actualID, { component: Tangible, operation: 'Container.instance.has' })
 		if (!actualObject)
 			return actualObject
