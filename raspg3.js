@@ -199,7 +199,7 @@ class RasPG {
 					return
 
 				const [typeString, label] = Array.isArray(typeSpec) ? typeSpec : [typeSpec, typeSpec]
-				const acceptedTypes = splitTopLevelTypes(typeString)
+				const acceptedTypes = splitOrs(typeString)
 				const isValid = acceptedTypes.some(type => checker(value, type))
 
 				if (!isValid)
@@ -214,7 +214,7 @@ class RasPG {
 					if (arrayMatch) {
 						if (!Array.isArray(val))
 							return false
-						const innerTypes = splitTopLevelTypes(arrayMatch[1])
+						const innerTypes = splitOrs(arrayMatch[1])
 						return val.every(el => innerTypes.some(inner => checker(el, inner)))
 					}
 					switch(typeStr) {
@@ -223,10 +223,12 @@ class RasPG {
 						case 'GameObject':
 							return val instanceof GameObject
 						default:
+							if (typeStr.match(/(['"])([^'"\n]+)\1/))
+								return (typeof val === 'string' && val === typeStr.match(/(['"])([^'"\n]+)\1/)[2])
 							return typeof val === typeStr
 					}
 				}
-				function splitTopLevelTypes(typeStr) {
+				function splitOrs(typeStr) {
 					const types = []
 					let depth = 0
 					let buffer = ''
@@ -539,7 +541,7 @@ class HookModule {
 	static #hooks = new Map()
 	static logInfo = true
 
-	/** Registers a callback to a given hook.
+	/** Attaches a callback to a given hook.
 	 *
 	 * !!!WARNING!!! - Hooks that depend on being able to mutate a function's passed `arguments` object will not work under 'use strict', or in functions with rest arguments (`...args`) or default values (`function(param=1)`).
 	 * @param {string} hook Convention: no spaces, camelCase.
