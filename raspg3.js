@@ -37,6 +37,9 @@ class RasPG {
 		repository: 'https://github.com/RustyGentleman/RasPG-Framework',
 	}
 	static config = {
+		defaultLocale: 'en',
+		availableLocales: ['en'],
+		locale: 'en',
 		parameterTypeEnforcement: true,
 		logWarnings: true,
 		logErrors: true,
@@ -1277,6 +1280,7 @@ class Stringful extends Component {
 					instance.set(key, string)
 		return instance
 	}
+	static #global = new Map()
 	#strings = new Map()
 
 	get strings() {
@@ -1284,9 +1288,63 @@ class Stringful extends Component {
 			return this.#strings
 		return new Map(this.#strings)
 	}
+	/** Gets the global string correlated with the given key.
+	 *
+	 * If not preffixed with a locale ID (will check first part of domain and check against identifiers for available locales), will search in current locale first, but fall back on the default locale if not found.
+	 */
+	static get(key) {
+		HookModule.run('Stringful.global.get', arguments, this)
 
-	static nounToList
+		RasPG.debug.validate.type('Stringful.global.get.key', key, 'string')
+
+		const actualKey = RasPG.config.availableLocales.includes(key.slice(0, key.indexOf('.')))? key : RasPG.config.locale + '.' + key
+		let string = this.#global.get(actualKey) || this.#global.get(RasPG.config.defaultLocale + '.' + key)
+		if (typeof string === 'function')
+			string = string()
+
+		return string
+	}
+	/** Sets the global string correlated with the given key. Can be a function that returns a string. Will preffix with the current locale ID as a domain, if not already preffixed (will check first part of domain and check against identifiers for available locales).
+	 * @param {string} key Convention: no spaces, camelCase.
+	 * @param {string | () => string} string
+	 */
+	static set(key, string) {
+		HookModule.run('before:Stringful.global.set', arguments, this)
+
+		RasPG.debug.validate.types('Stringful.global.set', {
+			key: [key, 'string'],
+			string: [string, ['string | function', 'string | () => string']]
+		})
+
+		const actualKey = RasPG.config.availableLocales.includes(key.slice(0, key.indexOf('.'))) ? key : RasPG.config.locale + '.' + key
+		const previous = this.#global.get(actualKey)
+		this.#global.set(actualKey, string)
+
+		EventModule.emit('strings.global.set', {
+			key: actualKey,
+			previous,
+			current: string
+		})
+		HookModule.run('after:Stringful.global.set', arguments, this)
+		return true
+	}
+	/** Defines global string in bulk. Returns the component instance back for further operations. Will preffix with the identifier for the current locale, if not already preffixed (will check first part of domain and check against identifiers for available locales).
+	 * @param {{[key: string]: string | () => string}} options 
+	 */
+	static define(options) {
+		HookModule.run('before:Stringful.global.define', arguments, this)
+
+		for (const [key, string] of Object.entries(options))
+			this.set(key, string)
+
+		HookModule.run('after:Stringful.global.define', arguments, this)
+		return this
+	}
 	/** Gets the string correlated with the given key.
+	 *
+	 * If not preffixed with a locale ID, will search in current locale first, but fall back on the default locale if not found.
+	 *
+	 * If not found on the object, will search global string registry for pattern 'locale.objectid.*', following the same logic as above.
 	 * @param {string} key Convention: dot-separated domains, no spaces, camelCase ('en.action.jumpOn.successful')
 	 */
 	get(key) {
@@ -1294,13 +1352,21 @@ class Stringful extends Component {
 
 		RasPG.dev.validate.type('Stringful.instance.get.key', key, 'string')
 
-		let string = this.#strings.get(key)
+		const parentID = this.parent?.id?.replace?.(/_inst\d+$/, '') || 'unknown'
+		const givenLocale = RasPG.config.availableLocales.includes(key.slice(0, key.indexOf('.')))
+		const rawKey = givenLocale ? key.slice(key.indexOf('.') + 1) : key
+		let string = this.#strings.get(givenLocale? key : RasPG.config.locale + '.' + rawKey)
+			|| this.#strings.get(RasPG.config.defaultLocale + '.' + rawKey)
+			|| Stringful.get([RasPG.config.locale, parentID, rawKey].join('.'))
+			|| Stringful.get([RasPG.config.defaultLocale, parentID, rawKey].join('.'))
 		if (typeof(string) === 'function')
 			string = string()
 
 		return string
 	}
 	/** Sets the string correlated with the given key. Can be a function that returns a string.
+	 *
+	 * If not already preffixed with a locale ID, will preffix with current locale ID.
 	 * @param {string} key Convention: no spaces, camelCase.
 	 * @param {string | () => string} string
 	 */
@@ -1312,25 +1378,28 @@ class Stringful extends Component {
 			string: [string, ['string | function', 'string | () => string']],
 		})
 
-		const previous = this.#strings.get(key)
-		this.#strings.set(key, string)
+		const actualKey = RasPG.config.availableLocales.includes(key.slice(0, key.indexOf('.')))? key : RasPG.config.locale + '.' + key
+		const previous = this.#strings.get(actualKey)
+		this.#strings.set(actualKey, string)
 
 		EventModule.emitPropertyEvents({
 			object: this.parent,
-			property: key,
+			property: actualKey,
 			previous,
 			current: string
 		}, 'strings.')
 		EventModule.emit('strings.set', {
 			object: this.parent,
-			key,
+			key: actualKey,
 			previous,
 			current: string
 		})
 		HookModule.run('after:Stringful.instance.set', arguments, this)
 		return true
 	}
-	/** Defines variables in bulk. Returns the component instance back for further operations.
+	/** Defines strings in bulk. Returns the component instance back for further operations.
+	 *
+	 * If not already preffixed with a locale ID, will preffix with current locale ID.
 	 * @param {{[key: string]: string | () => string}} options 
 	 */
 	define(options) {
