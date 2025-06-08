@@ -87,6 +87,23 @@ class RasPG {
 					fn()
 				else
 					setTimeout(() => RasPG.utils.scheduling.stateNot(fn, options))
+			},
+			/**
+			 * @param {function} fn
+			 * @param {{inner?: 'initializing' | 'serializing' | 'running' | 'instantiatingTemplate',[state: string]: string}} options
+			 */
+			state(fn, options) {
+				let ready = false
+				for (const [state, values] of Object.entries(options))
+					for (const value of values.split('|'))
+						if (RasPG.runtime.state[state].get() === value.trim()) {
+							ready = true
+							break
+						}
+				if (ready)
+					fn()
+				else
+					setTimeout(() => RasPG.utils.scheduling.stateNot(fn, options))
 			}
 		},
 		constructors: {
