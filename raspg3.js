@@ -126,6 +126,136 @@ class RasPG {
 			 * }} */
 			inner: this.utils.constructors.valueStack('initializing'),
 		},
+		turn: {
+			counter: 0,
+			queued: new Map(),
+			/** Schedules a function to be called after a number of turns, with many parameters.
+			 * @param {Function} callback
+			 * @param {{delay: number, on?: 'zero' | 'tick', phase?: string|'preparation'|'before'|'intent'|'after'|'cleanup', predicate?: () => boolean, repeat?: number}} options
+			 * @param {number} options.delay Required. Amount of turns to pass before the function is called.
+			 * @param {'zero' | 'tick'} [options.on] Defaults to 'zero'. Whether the function should be called at the end of the delay, or at every tick down.
+			 * @param {string|'preparation'|'before'|'intent'|'after'|'cleanup'} [options.phase] Defaults to 'before'. During what phase of turn resolution the function should be called. The framework's default turn resolution phases are listed.
+			 * @param {() => boolean} [options.predicate] Optional. Function defining necessary conditions for the function to be called. If not met, if on zero, delays call by a turn; if on tick, it simply isn't called that turn.
+			 * @param {number} [options.repeat] Defaults to 0. How many times the function should be re-queued after delay. Ignored if `options.on` is 'tick'.
+			 */
+			schedule(callback, options) {
+				HookModule.run('before:RasPG.runtime.turn.schedule.add', arguments, this)
+
+				RasPG.dev.validate.type('RasPG.runtime.turn.schedule.add.callback', callback, 'function')
+				RasPG.dev.validate.props('RasPG.runtime.turn.schedule.add.options', options, { delay: 'number' }, {
+					on: "'zero' | 'tick'",
+					phase: 'string',
+					predicate: ['function', '() => boolean'],
+					repeat: 'number'
+				})
+
+				const scheduleTurn = this.counter + options.delay
+				const queueKey = `${(('on' in options) && options.on === 'tick')? 'tick' : scheduleTurn}:${options.phase || 'before'}`
+				const queue = this.queued.get(queueKey)?? this.queued.set(queueKey, [])
+				if (('on' in options) && options.on === 'tick')
+					queue.push({
+						callback,
+						end: scheduleTurn,
+						predicate: options.predicate || undefined
+					})
+				else {
+					queue.push({
+						callback,
+						delay: options.delay,
+						predicate: options.predicate || undefined,
+						repeat: options.repeat || 0
+					})
+				}
+
+				HookModule.run('after:RasPG.runtime.turn.schedule.add', arguments, this)
+			},
+			/** Runs scheduled function calls according to the key and phase, then removes them from the queue. Re-schedules repeat functions, and delays functions with false-returning predicates, if necessary.
+			 * @param {number | 'tick'} key Turn or 'tick'.
+			 * @param {string|'preparation'|'before'|'intent'|'after'|'cleanup'} phase Turn resolution phase.
+			 */
+			runScheduled(key, phase) {
+				HookModule.run('before:RasPG.runtime.turn.runScheduled', arguments, this)
+
+				RasPG.dev.validate.types('RasPG.runtime.turn.runScheduled', {
+					key: [key, "number | 'tick'"],
+					phase: [phase, 'string']
+				})
+
+				const queue = this.queued.get(`${key}:${phase}`)
+				if (!queue)
+					return
+				for (const item of Array.from(queue)) {
+					if (predicate === undefined || predicate())
+						item.callback()
+					else if (key !== 'tick')
+						this.queued.get(`${+key + 1}:${phase}`).push(item)
+					if (key === 'tick') {
+						if (item.end === this.counter)
+							queue.splice(queue.indexOf(item), 1)
+					} else {
+						if (item.repeat > 0) {
+							item.repeat -= 1
+							this.schedule(item.callback, Object.assign({on: 'zero', phase}, item))
+						} else
+							queue.splice(queue.indexOf(item), 1)
+					}
+				}
+
+				HookModule.run('after:RasPG.runtime.turn.runScheduled', arguments, this)
+			},
+			pipeline: {
+				/** @type {{name: string, run: Function, appended: {callback: Function, once: boolean}[]}[]} */
+				phases: [],
+				/** Registers a turn phase into the turn resolution pipeline. In `options`, if `before` is passed, `after` will be ignored - they are mutually exclusive.
+				 *
+				 * 'before:' and 'after:' hooks will be run around each phase during turn resolution.
+				 * @param {string} name Convention: no spaces, camelCase.
+				 * @param {Function} fn Function that performs the necessary operations.
+				 * @param {{before?: string, after?: string}} options
+				 * @param {{string}} [options.before] Existing turn phase before which it should be placed.
+				 * @param {{string}} [options.after] Existing turn phase after which it should be placed.
+				 */
+				register(name, fn, options) {
+					HookModule.run('before:TurnPipeline.register', arguments, this)
+
+					RasPG.dev.validate.props('TurnPipeline.register.options', options, false, {
+						before: 'string',
+						after: 'string'
+					})
+					if (this.phases.some(p => p.name === name))
+						throw RasPG.dev.exceptions.GeneralIDConflict('TurnPipeline.phases', name)
+					if (options.before && !this.phases.find(e => e.name === options.before))
+						throw new Error(`[RasPG - Core] Turn phase "${options.before}" not found`
+							+'\nMaybe typo, not registered, or wrong operation order')
+					else if (options.after && !this.phases.find(e => e.name === options.after))
+						throw new Error(`[RasPG - Core] Turn phase "${options.after}" not found`
+							+'\nMaybe typo, not registered, or wrong operation order')
+
+					this.phases.splice(index, 0, { name, run: fn, appended: [] })
+
+					HookModule.run('after:TurnPipeline.register', arguments, this)
+				},
+				/** Reorders turn phases in the pipeline to reflect the given array. Must contain all defined turn phases.
+				 * @param {string[]} order
+				 */
+				reorder(order) {
+					HookModule.run('before:TurnPipeline.reorder', arguments, this)
+
+					if (order.length !== this.phases.length || !order.every(name => !!this.phases.find(e => e.name === name)))
+						throw new Error('[RasPG - Core] Attempted reordering of turn phase pipeline is incomplete or incorrect'
+							+'\nMaybe type, forgot some, or wrong operation order')
+
+					this.phases = order.map(name => this.phases.find(p => p.name === name))
+
+					HookModule.run('after:TurnPipeline.reorder', arguments, this)
+				},
+				/** Runs the given turn phase resolution, and any appended callbacks.
+				 * @param {string} name
+				 */
+				run(name) {
+				}
+			}
+		},
 		saveModule: undefined,
 		modules: new Map(),
 		classes: new Map(),
