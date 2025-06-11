@@ -73,7 +73,7 @@ class RasPG {
 		scheduling: {
 			/**
 			 * @param {function} fn
-			 * @param {{inner?: 'initializing' | 'serializing' | 'running' | 'instantiatingTemplate',[state: string]: string}} options
+			 * @param {{inner?: 'initializing'|'running'|'serializing'|'templating'|'instantiating',[state: string]: string}} options
 			 */
 			stateNot(fn, options) {
 				let ready = true
@@ -86,11 +86,11 @@ class RasPG {
 				if (ready)
 					fn()
 				else
-					setTimeout(() => RasPG.utils.scheduling.stateNot(fn, options))
+					EventModule.on('state.**.changed', () => this.stateNot(fn, options), {once: true})
 			},
 			/**
 			 * @param {function} fn
-			 * @param {{inner?: 'initializing' | 'serializing' | 'running' | 'instantiatingTemplate',[state: string]: string}} options
+			 * @param {{inner?: 'initializing'|'running'|'serializing'|'templating'|'instantiating',[state: string]: string}} options
 			 */
 			state(fn, options) {
 				let ready = false
@@ -103,16 +103,36 @@ class RasPG {
 				if (ready)
 					fn()
 				else
-					setTimeout(() => RasPG.utils.scheduling.stateNot(fn, options))
+					EventModule.on('state.**.changed', () => this.state(fn, options), {once: true})
 			}
 		},
 		constructors: {
-			valueStack(initialValue=undefined) {
+			/**
+			 * @param {any} initialValue
+			 * @param {{onPush?: Function, onPop?: Function, onGet?: Function}} callbacks 
+			 */
+			valueStack(initialValue, callbacks) {
 				const stack = [initialValue]
+
 				return {
-					push: (val) => stack.unshift(val),
-					pop: () => stack.shift(),
-					get: () => stack.at(0) || undefined
+					push(val) {
+						stack.unshift(val)
+						if (callbacks.onPush) 
+							callbacks.onPush(val, stack)
+					},
+					pop() {
+						const val = stack.shift()
+						if (callbacks.onPop) 
+							callbacks.onPop(val, stack)
+						return val
+					},
+					get() {
+						const val = stack.at(0) || undefined
+						if (callbacks.onGet) 
+							callbacks.onGet(val, stack)
+						return val
+					},
+					callbacks
 				}
 			}
 		}
@@ -124,7 +144,10 @@ class RasPG {
 			 * get : () => 'initializing'|'running'|'serializing'|'templating'|'instantiating',
 			 * pop : () => 'initializing'|'running'|'serializing'|'templating'|'instantiating'
 			 * }} */
-			inner: this.utils.constructors.valueStack('initializing'),
+			inner: this.utils.constructors.valueStack('initializing', {
+					onPush: () => {EventModule.emit('state.inner.changed'); EventModule.emit('state.inner.pushed')},
+					onPop: () => {EventModule.emit('state.inner.changed'); EventModule.emit('state.inner.popped')}
+				}),
 		},
 		turn: {
 			counter: 0,
