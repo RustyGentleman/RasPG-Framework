@@ -554,6 +554,7 @@ class RasPG {
 
 //# Modules
 class EventModule {
+	/** @type {Map<string, Set<{event: string, callback: Function, owner: GameObject | undefined, once: boolean}>>} */
 	static #listeners = new Map()
 	static logInfo = true
 	static _proxyHandler = {
@@ -565,6 +566,8 @@ class EventModule {
 	}
 
 	/** Registers a listener for a given event type.
+	 *
+	 * The wildcard '\*' matches any single domain. '\*\*' matches across domains. For example, 'stats.\*.changed' will match 'stats.health.changed', but not 'stats.health.max.changed'. 'stats.\*\*.changed' will match both.
 	 * @param {string} event
 	 * @param {EventCallback} callback
 	 * @param {{owner: GameObject, once: boolean}} options
@@ -577,7 +580,7 @@ class EventModule {
 
 		HookModule.run('after:EventModule.on', arguments, this)
 	}
-	/** Removes a specific listener, optionally from a specific owner. Returns the number of listeners removed.
+	/** Removes a specific listener, optionally from a specific owner. Does not parse wildcards. Returns the number of listeners removed.
 	 * @param {string} event
 	 * @param {EventCallback} callback
 	 * @param {{owner: GameObject, once: boolean}} options
@@ -612,8 +615,16 @@ class EventModule {
 
 		if (this.logInfo)
 			console.info(`[\x1b[36;1mEvent\x1b[0m - \x1b[33m${event}\x1b[0m on \x1b[93m${data.object? 'ID:'+data.object.id : 'object'}\x1b[0m]`)
+
 		if (!this.#listeners.has(event)) return
-		const listeners = this.#listeners.get(event)
+
+		const listeners = Array.from(this.#listeners.get(event))
+		for (const [e, l] of this.#listeners.entries()) {
+			if (e.includes('**') && event.match(new RegExp('^'+e.replaceAll('.', '\.').replaceAll('**', '.*?')+'$')))
+				listeners.push(...l.values())
+			if (e.includes('*') && event.match(new RegExp('^'+e.replaceAll('.', '\.').replaceAll('*', '[^.]*')+'$')))
+				listeners.push(...l.values())
+		}
 		for (const listener of listeners) {
 			listener.callback(listener.owner, data)
 			if (listener.once)
