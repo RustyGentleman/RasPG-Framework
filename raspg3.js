@@ -139,10 +139,10 @@ class RasPG {
 			 * @param {number} [options.repeat] Defaults to 0. How many times the function should be re-queued after delay. Ignored if `options.on` is 'tick'.
 			 */
 			schedule(callback, options) {
-				HookModule.run('before:RasPG.runtime.turn.schedule.add', arguments, this)
+				HookModule.run('before:Turn.schedule', arguments, this)
 
-				RasPG.dev.validate.type('RasPG.runtime.turn.schedule.add.callback', callback, 'function')
-				RasPG.dev.validate.props('RasPG.runtime.turn.schedule.add.options', options, { delay: 'number' }, {
+				RasPG.dev.validate.type('Turn.schedule.callback', callback, 'function')
+				RasPG.dev.validate.props('Turn.schedule.options', options, { delay: 'number' }, {
 					on: "'zero' | 'tick'",
 					phase: 'string',
 					predicate: ['function', '() => boolean'],
@@ -167,16 +167,16 @@ class RasPG {
 					})
 				}
 
-				HookModule.run('after:RasPG.runtime.turn.schedule.add', arguments, this)
+				HookModule.run('after:Turn.schedule', arguments, this)
 			},
 			/** Runs scheduled function calls according to the key and phase, then removes them from the queue. Re-schedules repeat functions, and delays functions with false-returning predicates, if necessary.
 			 * @param {number | 'tick'} key Turn or 'tick'.
 			 * @param {string|'preparation'|'before'|'intent'|'after'|'cleanup'} phase Turn resolution phase.
 			 */
 			runScheduled(key, phase) {
-				HookModule.run('before:RasPG.runtime.turn.runScheduled', arguments, this)
+				HookModule.run('before:Turn.runScheduled', arguments, this)
 
-				RasPG.dev.validate.types('RasPG.runtime.turn.runScheduled', {
+				RasPG.dev.validate.types('Turn.runScheduled', {
 					key: [key, "number | 'tick'"],
 					phase: [phase, 'string']
 				})
@@ -201,7 +201,7 @@ class RasPG {
 					}
 				}
 
-				HookModule.run('after:RasPG.runtime.turn.runScheduled', arguments, this)
+				HookModule.run('after:Turn.runScheduled', arguments, this)
 			},
 			pipeline: {
 				/** @type {{name: string, run: Function, appended: {callback: Function, once: boolean}[]}[]} */
@@ -216,14 +216,14 @@ class RasPG {
 				 * @param {{string}} [options.after] Existing turn phase after which it should be placed.
 				 */
 				register(name, fn, options) {
-					HookModule.run('before:TurnPipeline.register', arguments, this)
+					HookModule.run('before:Turn.pipeline.register', arguments, this)
 
-					RasPG.dev.validate.props('TurnPipeline.register.options', options, false, {
+					RasPG.dev.validate.props('Turn.pipeline.register.options', options, false, {
 						before: 'string',
 						after: 'string'
 					})
 					if (this.phases.some(p => p.name === name))
-						throw RasPG.dev.exceptions.GeneralIDConflict('TurnPipeline.phases', name)
+						throw RasPG.dev.exceptions.GeneralIDConflict('Turn.pipeline.phases', name)
 					if (options.before && !this.phases.find(e => e.name === options.before))
 						throw new Error(`[RasPG - Core] Turn phase "${options.before}" not found`
 							+'\nMaybe typo, not registered, or wrong operation order')
@@ -233,13 +233,13 @@ class RasPG {
 
 					this.phases.splice(index, 0, { name, run: fn, appended: [] })
 
-					HookModule.run('after:TurnPipeline.register', arguments, this)
+					HookModule.run('after:Turn.pipeline.register', arguments, this)
 				},
 				/** Reorders turn phases in the pipeline to reflect the given array. Must contain all defined turn phases.
 				 * @param {string[]} order
 				 */
 				reorder(order) {
-					HookModule.run('before:TurnPipeline.reorder', arguments, this)
+					HookModule.run('before:Turn.pipeline.reorder', arguments, this)
 
 					if (order.length !== this.phases.length || !order.every(name => !!this.phases.find(e => e.name === name)))
 						throw new Error('[RasPG - Core] Attempted reordering of turn phase pipeline is incomplete or incorrect'
@@ -247,13 +247,43 @@ class RasPG {
 
 					this.phases = order.map(name => this.phases.find(p => p.name === name))
 
-					HookModule.run('after:TurnPipeline.reorder', arguments, this)
+					HookModule.run('after:Turn.pipeline.reorder', arguments, this)
 				},
 				/** Runs the given turn phase resolution, and any appended callbacks.
 				 * @param {string} name
 				 */
 				run(name) {
+					HookModule.run('before:Turn.pipeline.run', arguments, this)
+
+					const phase = this.phases.find(e => e.name === name)
+					if (!phase)
+						return RasPG.dev.logs.elementNotRegisteredInCollection(name, 'Turn.pipeline.phases')
+
+					HookModule.run('before:Turn.phase:'+ name, arguments, this)
+					phase.run()
+					for (const appendix of Array.from(phase.appended)) {
+						appendix.callback()
+						if (appendix.once)
+							phase.appended.splice(phase.appended.indexOf(appendix), 1)
+					}
+					HookModule.run('after:Turn.phase:'+ name, arguments, this)
+
+					HookModule.run('after:Turn.pipeline.run', arguments, this)
 				}
+			},
+			tick() {
+				HookModule.run('before:Turn.tick', arguments, this)
+
+				this.runScheduled('tick', 'before')
+				this.runScheduled(this.counter, 'before')
+
+				for (const phase of this.pipeline.phases)
+					this.pipeline.run(phase.name)
+ 
+				this.runScheduled(this.counter, 'after')
+				this.runScheduled('tick', 'after')
+
+				HookModule.run('after:Turn.tick', arguments, this)
 			}
 		},
 		saveModule: undefined,
