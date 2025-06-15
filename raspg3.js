@@ -302,7 +302,7 @@ class RasPG {
 
 				for (const phase of this.pipeline.phases)
 					this.pipeline.run(phase.name)
- 
+
 				this.runScheduled(this.counter, 'after')
 				this.runScheduled('tick', 'after')
 
@@ -1506,14 +1506,29 @@ class Stringful extends Component {
 	/** Gets the global string correlated with the given key.
 	 *
 	 * If not prefixed with a locale ID (will check first part of domain and check against identifiers for available locales), will search in current locale first, but fall back on the default locale if not found.
+	 * @param {string} key
+	 * @param {{parentID?: string, givenLocale?: string, rawKey?: string}} split For internal use, passed by instance method.
 	 */
-	static get(key) {
+	static get(key, split) {
 		HookModule.run('Stringful.global.get', arguments, this)
 
 		RasPG.debug.validate.type('Stringful.global.get.key', key, 'string')
 
-		const actualKey = RasPG.config.availableLocales.includes(key.slice(0, key.indexOf('.')))? key : RasPG.config.locale + '.' + key
-		let string = this.#global.get(actualKey) || this.#global.get(RasPG.config.defaultLocale + '.' + key)
+
+		const parentID = split?.parentID
+			|| this.parent?.id?.replace?.(/_inst\d+$/, '') || 'unknown'
+		const givenLocale = split?.givenLocale
+			|| RasPG.config.availableLocales.includes(key.slice(0, key.indexOf('.')))? key.slice(0, key.indexOf('.')) : false
+		const rawKey = split?.rawKey
+			|| givenLocale ? key.slice(key.indexOf('.') + 1) : key
+
+		let string = this.#global.get([(givenLocale || RasPG.config.locale), parentID, rawKey].join('.'))
+			|| this.#global.get([(givenLocale || RasPG.config.locale), 'default', rawKey].join('.'))
+			|| this.#global.get((givenLocale || RasPG.config.locale) + '.' + rawKey)
+			|| this.#global.get([RasPG.config.defaultLocale, parentID, rawKey].join('.'))
+			|| this.#global.get([RasPG.config.defaultLocale, 'default', rawKey].join('.'))
+			|| this.#global.get(RasPG.config.defaultLocale + '.' + rawKey)
+
 		if (typeof string === 'function')
 			string = string()
 
@@ -1568,12 +1583,13 @@ class Stringful extends Component {
 		RasPG.dev.validate.type('Stringful.instance.get.key', key, 'string')
 
 		const parentID = this.parent?.id?.replace?.(/_inst\d+$/, '') || 'unknown'
-		const givenLocale = RasPG.config.availableLocales.includes(key.slice(0, key.indexOf('.')))
-		const rawKey = givenLocale ? key.slice(key.indexOf('.') + 1) : key
-		let string = this.#strings.get(givenLocale? key : RasPG.config.locale + '.' + rawKey)
+		const givenLocale = RasPG.config.availableLocales.includes(key.slice(0, key.indexOf('.')))? key.slice(0, key.indexOf('.')) : false
+		const rawKey = givenLocale? key.slice(key.indexOf('.') + 1) : key
+
+		let string = this.#strings.get((givenLocale || RasPG.config.locale) + '.' + rawKey)
 			|| this.#strings.get(RasPG.config.defaultLocale + '.' + rawKey)
-			|| Stringful.get([RasPG.config.locale, parentID, rawKey].join('.'))
-			|| Stringful.get([RasPG.config.defaultLocale, parentID, rawKey].join('.'))
+			|| Stringful.get(key, {parentID, givenLocale, rawKey})
+
 		if (typeof string === 'function')
 			string = string()
 
