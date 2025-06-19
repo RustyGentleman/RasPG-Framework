@@ -435,26 +435,32 @@ class RasPG {
 			 * @param {string} path Domain(.instance).method.param
 			 * @param {Object} object Object to be validated
 			 * @param {{ [prop: string]: string | [string, string] } | false} required Required properties and their types
-			 * @param {{ [prop: string]: string | [string, string] }} optional Optional properties and their types
+			 * @param {{ '*'?: string, [prop: string]: string | [string, string] }} optional Optional properties and their types
 			 */
 			props(path, object, required, optional={}) {
+				if (!RasPG.config.parameterTypeEnforcement)
+					return
 				if (required === false && object === undefined)
 					return true
 				if (typeof object !== 'object')
 					if (RasPG.config.parameterTypeEnforcement)
 						throw RasPG.dev.exceptions.BrokenTypeEnforcement(path.match(/[^\.]+$/), typeof object, 'object')
 					else return false
-				for (const [prop, typeSpec] of Object.entries(required)) {
+
+				const wild = optional? (optional['*'] || false) : false
+
+				for (const [prop, typeSpec] of Object.entries(required))
 					if (!(prop in object))
 						throw RasPG.dev.exceptions.MissingParameter(prop)
 					else if (RasPG.config.parameterTypeEnforcement && typeSpec !== '')
 						this.type(path+'.'+prop, object[prop], typeSpec)
-				}
-				if (!RasPG.config.parameterTypeEnforcement)
-					return
 				for (const [prop, typeSpec] of Object.entries(optional))
 					if (prop in object)
 						this.type(path+'.'+prop, object[prop], typeSpec)
+				if (wild)
+					for (const [prop, value] of Object.entries(object).filter(([prop, _]) => !(prop in required) && !(prop in optional)))
+						this.type(path+'.'+prop, value, wild)
+
 				return true
 			},
 			/**
