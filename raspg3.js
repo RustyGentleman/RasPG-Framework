@@ -1757,7 +1757,11 @@ class Perceptible extends Component {
 		this.#perceptions.get(sense).set(context, description)
 		this.parent._strings.set(`sense.${sense}.${context}`, description)
 
-		EventModule.emit(`perceptions.added`, { object: this.parent, sense, context })
+		EventModule.emit(`perceptions.set`, { object: this.parent, sense, context })
+		if (existed)
+			EventModule.emit(`perceptions.changed`, { object: this.parent, sense, context })
+		else
+			EventModule.emit(`perceptions.added`, { object: this.parent, sense, context })
 		HookModule.run('after:Perceptible.instance.setPerception', arguments, this)
 		return existed
 	}
