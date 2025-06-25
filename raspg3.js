@@ -135,6 +135,18 @@ class RasPG {
 					callbacks
 				}
 			}
+		},
+		version: {
+			/**
+			 * @param {string} version
+			 */
+			split(version) {
+				const matches = version.match(/(\d)\.(\d)\.(\d)(?:-(\w*))?/)
+				if (!matches)
+					return false
+				const [_, major, minor, patch, branch] = matches
+				return {major: +major, minor: +minor, patch: +patch, branch: branch || undefined}
+			}
 		}
 	}
 	static runtime = {
@@ -474,6 +486,16 @@ class RasPG {
 				for (const [param, [value, typeSpec]] of Object.entries(checks))
 					this.type(path+'.'+param, value, typeSpec)
 				return true
+			},
+			/**
+			 * @param {string} elementName
+			 * @param {string} version
+			 */
+			versioning(elementName, version) {
+				const split = RasPG.utils.version.split(version)
+				if (!split)
+					throw new Error(`[RasPG - Core] Malformed versioning on "${elementName}": "${version}"`
+						+'\nRequired format: MAJOR.MINOR.PATCH[-BRANCH]')
 			}
 		},
 		/** Returns the ID in the collection that matches the query, according to its prefix. `collection` can be Set or Map, if `.find()` mutations are present.
@@ -513,8 +535,8 @@ class RasPG {
 		if (typeof module !== 'function')
 			throw RasPG.dev.exceptions.BrokenTypeEnforcement('RasPG.registerModule.module', 'function')
 		if (this.runtime.modules.has(name)) {
-			console.warn(`[RasPG - Core] Attempted to register module "${name}" more than once.`
-				+'\nNo clue here, honestly; unless also attempting to register an extension more than once')
+			console.warn(`[RasPG - Core] Attempted to register module with name "${name}" more than once.`
+				+'\nMaybe attempting to register extension more than once, or modules from different sources share a name')
 			return false
 		}
 
@@ -531,8 +553,8 @@ class RasPG {
 		if (typeof clss !== 'function')
 			throw RasPG.dev.exceptions.BrokenTypeEnforcement('RasPG.registerClass.clss', 'function')
 		if (this.runtime.classes.has(name)) {
-			console.warn(`[RasPG - Core] Attempted to register class "${name}" more than once.`
-				+'\nNo clue here, honestly; unless also attempting to register an extension more than once')
+			console.warn(`[RasPG - Core] Attempted to register class with name "${name}" more than once.`
+				+'\nMaybe attempting to register extension more than once, or classes from different sources share a name')
 			return false
 		}
 
@@ -546,18 +568,19 @@ class RasPG {
 	static registerComponent(name, component) {
 		if (typeof name !== 'string')
 			throw RasPG.dev.exceptions.BrokenTypeEnforcement('RasPG.registerComponent.name', 'string')
-		if (typeof component !== 'function')
-			throw RasPG.dev.exceptions.BrokenTypeEnforcement('RasPG.registerComponent.component', 'function')
+		if (typeof component !== 'function' || !Component.isPrototypeOf(component))
+			throw RasPG.dev.exceptions.BrokenTypeEnforcement('RasPG.registerComponent.component', 'Component')
 		if (this.runtime.components.has(name)) {
-			console.warn(`[RasPG - Core] Attempted to register component "${name}" more than once.`
-				+'\nMaybe component name conflict between extensions, or attempting to register an extension more than once')
+			console.warn(`[RasPG - Core] Attempted to register component with name "${name}" more than once.`
+				+'\nMaybe attempting to register extension more than once, or components from different sources share a name')
 			return false
 		}
 
 		this.runtime.components.set(name, component)
 		if (component.reference) {
 			const existing = Array.from(RasPG.runtime.components.values()).find(e => e.reference === component.reference)
-			RasPG.dev.logs.componentReferenceCollision(false, component.reference, existing, component)
+			if (existing)
+				RasPG.dev.logs.componentReferenceCollision(false, component.reference, existing, component)
 		}
 		return this
 	}
@@ -1375,6 +1398,69 @@ class Component {
 	}
 } RasPG.registerClass('Component', Component)
 
+class Extension {
+	name
+	description
+	author
+	version
+	repository = false
+	minimumCoreVersion = false
+	modules = new Map()
+	classes = new Map()
+	components = new Map()
+
+	/**
+	 * @param {string} name
+	 * @param {{ description: string, author: string, version: string, minimumCoreVersion?: string, repository?: string }} metadata
+	 * @param {string} metadata.description A description of the extension itself, i.e. what it adds, what it might be useful for, etc.
+	 * @param {string} metadata.author The name of the extension's author.
+	 * @param {string} metadata.version  The extension's version. Format: MAJOR.MINOR.PATCH[-BRANCH].
+	 * @param {string} [metadata.minimumCoreVersion] The minimum framework core version required for the extension to work, if applicable. Format: MAJOR.MINOR.PATCH[-BRANCH].
+	 * @param {string} [metadata.repository] Optional. A hyperlink to the extension's repository.
+	 */
+	constructor(name, metadata) {
+		RasPG.dev.validate.type('Extension.instance.name', name, 'string')
+		RasPG.dev.validate.props('Extension.instance.metadata', metadata, {
+			description: 'string',
+			author: 'string',
+			version: 'string',
+		}, { minimumCoreVersion: 'string', repository: 'string' })
+		RasPG.dev.validate.versioning(name+'.version', metadata.version)
+		if ('minimumCoreVersion' in metadata)
+			RasPG.dev.validate.versioning(name+'.minimumCoreVersion', metadata.minimumCoreVersion)
+
+		this.name = name
+		this.description = metadata.description
+		this.author = metadata.author
+		this.version = metadata.version
+		this.minimumCoreVersion = metadata.minimumCoreVersion?? false
+		this.repository = metadata.repository?? false
+	}
+	addClass(name, clss) {
+		this.classes.set(name, clss)
+	}
+	addModule(name, module) {
+		this.modules.set(name, module)
+	}
+	addComponent(name, component) {
+		this.components.set(name, component)
+	}
+	register() {
+		if (this.runtime.extensions.has(this.name)) {
+			console.warn(`[RasPG - Core] Attempted to register extension with name "${this.name}" more than once.`
+				+'\nMaybe importing in or from multiple places, or multiple extensions share a name')
+			return false
+		}
+
+		for (const [name, module] of this.modules.entries())
+			RasPG.registerModule(name, module)
+		for (const [name, clss] of this.classes.entries())
+			RasPG.registerClass(name, clss)
+		for (const [name, component] of this.components.entries())
+			RasPG.registerComponent(name, component)
+		RasPG.runtime.extensions.set(this.name, this)
+	}
+}
 
 //# Components
 class Stateful extends Component {
