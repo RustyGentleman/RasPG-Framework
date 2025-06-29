@@ -1210,9 +1210,9 @@ class GameObject {
 	/**
 	 * @param {string} id Convention: all lowercase, no spaces.
 	 * @param {{tags?: string[], components?: Array<typeof Component | Component | string>, register?: boolean}} [options]
-	 * @param {string[]} [options.tags] Tags to be added
-	 * @param {Array<typeof Component | Component | string>} [options.components] Components to be added
-	 * @param {boolean} [options.register] If strictly `false`, instance will not be registered to GameObject.#all.
+	 * @param [options.tags] Tags to be added
+	 * @param [options.components] Components to be added
+	 * @param [options.register] If strictly `false`, instance will not be registered to GameObject.#all.
 	 */
 	constructor(id, options) {
 		HookModule.run('before:GameObject.constructor', arguments, this)
@@ -1460,15 +1460,15 @@ class LocalizationAdapter {
 
 	/**
 	 * @param {{author: string, version: string, code: string, tokens: {[base: string]: string[] | {[inflectionType: string]: string}}, metadataRequired: {[objectType: string]: {[feature: string]: any | any[]}}, metadataOptional?: {[objectType: string]: {[feature: string]: any | any[]}}, morpher: (parts: {[baseToken: string]: string[]}, object: GameObject) => string, notes?: string, config?: {[setting: string]: any}}} options
-	 * @param {string} options.author The localization pack's author.
-	 * @param {string} options.version The localization pack version.
-	 * @param {string} options.code Language and, optionally, region code. Convention: all lowercase, dash-separated.
-	 * @param {{[base: string]: string[] | {[inflectionType: string]: string}}} options.tokens Base word-type tokens, each listing what glossing abbreviations apply to it and, optionally, an accompanying function that applies the morphing (only recommended if the language has simple inflections).
-	 * @param {{[objectType: string]: {[feature: string]: any[]}}} options.metadataRequired Description of linguistic metadata required by different types of objects (e.g. people, objects, actions), each described as an array of expected/accepted values.
-	 * @param {{[objectType: string]: {[feature: string]: any[]}}} [options.metadataOptional] Description of linguistic metadata usable by different types of objects (e.g. people, objects, actions), each described as an array of expected/accepted values.
-	 * @param {(parts: {[baseToken: string]: string[]}, object: GameObject) => string} options.morpher Function that takes the GameObject and gloss, and returns a grammatically correct clause.
-	 * @param {string} [options.notes] Optional. Notes and other information regarding the localization pack.
-	 * @param {{[setting: string]: any}} [options.config] Optional. Any settings made available to the developer using the adapter.
+	 * @param options.author The localization pack's author.
+	 * @param options.version The localization pack version.
+	 * @param options.code Language and, optionally, region code. Convention: all lowercase, dash-separated.
+	 * @param options.tokens Base word-type tokens, each listing what glossing abbreviations apply to it and, optionally, an accompanying function that applies the morphing (only recommended if the language has simple inflections).
+	 * @param options.metadataRequired Description of linguistic metadata required by different types of objects (e.g. people, objects, actions), each described as an array of expected/accepted values.
+	 * @param [options.metadataOptional] Description of linguistic metadata usable by different types of objects (e.g. people, objects, actions), each described as an array of expected/accepted values.
+	 * @param options.morpher Function that takes the GameObject and gloss, and returns a grammatically correct clause.
+	 * @param [options.notes] Optional. Notes and other information regarding the localization pack.
+	 * @param [options.config] Optional. Any settings made available to the developer using the adapter.
 	 */
 	constructor(options) {
 		RasPG.dev.validate.props('LocalizationPack.constructor.options', options, {
@@ -1526,11 +1526,11 @@ class Extension {
 	/**
 	 * @param {string} name
 	 * @param {{ description: string, author: string, version: string, minimumCoreVersion?: string, repository?: string }} metadata
-	 * @param {string} metadata.description A description of the extension itself, i.e. what it adds, what it might be useful for, etc.
-	 * @param {string} metadata.author The name of the extension's author.
-	 * @param {string} metadata.version  The extension's version. Format: MAJOR.MINOR.PATCH[-BRANCH].
-	 * @param {string} [metadata.minimumCoreVersion] The minimum framework core version required for the extension to work, if applicable. Format: MAJOR.MINOR.PATCH[-BRANCH].
-	 * @param {string} [metadata.repository] Optional. A hyperlink to the extension's repository.
+	 * @param metadata.description A description of the extension itself, i.e. what it adds, what it might be useful for, etc.
+	 * @param metadata.author The name of the extension's author.
+	 * @param metadata.version  The extension's version. Format: MAJOR.MINOR.PATCH[-BRANCH].
+	 * @param [metadata.minimumCoreVersion] The minimum framework core version required for the extension to work, if applicable. Format: MAJOR.MINOR.PATCH[-BRANCH].
+	 * @param [metadata.repository] Optional. A hyperlink to the extension's repository.
 	 */
 	constructor(name, metadata) {
 		RasPG.dev.validate.type('Extension.instance.name', name, 'string')
@@ -1869,11 +1869,12 @@ class Describable extends Component {
 	}
 
 	/** Sets the name and description for an object. Both can be string or string-returning functions. Returns the component instance back for further operations.
-	 * @param {{canonicalName: string | () => string, nouns: string[], adjectives: string[], description: string | () => string, }} options
+	 * @param {{canonicalName: string | () => string, nouns: string[], adjectives: string[], description: string | () => string, metadata?: {objectType: string | string[], overrides?: {[baseToken: string]: [string[], string]}, [feature: string]: any}}} options
 	 * @param options.canonicalName Convention: no article, singular, all lowercase (unless proper name).
 	 * @param options.nouns Convention: no article, singular, all lowercase, first in array should reflect canonical name.
 	 * @param options.adjectives Convention: no article, singular, all lowercase, first in array should reflect canonical name.
 	 * @param options.description Convention: full sentence(s), first letter uppercase, full stop at the end.
+	 * @param [options.metadata] Linguistic metadata to be used by LocalizationAdapters. Consult documentation and required/optional metadata on the adapter, if being used.
 	 */
 	describe(options) {
 		HookModule.run('before:Describable.instance.describe', arguments, this)
@@ -2272,8 +2273,8 @@ class Containing extends Component {
 	/** Adds an object to the container. Returns the component instance back for further operations.
 	 * @param {GameObject | string} object
 	 * @param {{ignoreFilter?: boolean, passOn?: boolean}} options
-	 * @param {boolean} options.ignoreFilter If set to `true`, object will be added to container regardless of a present filter.
-	 * @param {boolean} options.passOn INTERNAL USE: if anything but `false`, will call the current (if existent) container's `remove` method and new container's `add` method.
+	 * @param options.ignoreFilter If set to `true`, object will be added to container regardless of a present filter.
+	 * @param options.passOn INTERNAL USE: if anything but `false`, will call the current (if existent) container's `remove` method and new container's `add` method.
 	 */
 	add(object, options) {
 		HookModule.run('before:Container.instance.add', arguments, this)
