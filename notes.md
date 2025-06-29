@@ -27,15 +27,6 @@
 - Events: wildcard listeners (i.e. stats.*.changed)
 ## Components
 - AI -> Willful? Volitional? Deliberate?
-## Misc
-- Simulate learning with tags, actions and a Knowing module?
-	- Environment with objects containing facts
-		- i.e. is hot, is cold, is food, touch hurt
-	- Entity has actions
-		- i.e. touch, eat, smell, use
-	- Entity learns facts through actions
-		- i.e. water is hot, touch hot hurt, eat food good
-	- Entity chooses actions every turn based on what's available and what they know
 
 # Todo
 ## All
@@ -48,16 +39,8 @@
 - documentation sanity/consistency check (bracketed optionals(?), option parameters, wording)
 - declarative mode for easier GameObject declarations?
 - delta serialization on templated objects
+- implement context object push/pop on relevant operations
 ## Core
-- turn counter and queued events
-	- turns, tick down to 0
-	- callbacks on tick, on zero
-		- maybe allow predicate dictating necessary conditions for on zero to tick, allowing it to be delayed until possible (tick counter goes negative)
-	- repeat boolean or counter
-	- phase (before or after turn resolution)
-- text template system
-	- separate module
-	- accrues context (room, items present, actors, targets)
 - persistence/save module
 ### GameObject
 - addComponent -> make?
@@ -66,10 +49,16 @@
 ### Containing
 - implement empty and emptyInto
 - filter, weight/count capacity
+### Actionable, Agentive
+- per-object act(ion) aliases (map name -> alias[])
 ### Actionable
 - agents* -> actors*?
 ### Agentive
 - intent, heuristic
+### Context module
+- allow getting global strings
+### SubText module
+- allow registering property getters for context objects in substitutions
 
 
 ## Stats & Combat
@@ -78,5 +67,7 @@
 
 # Doing
 - Tangible nested container chain checking
-- Perceptible nouns + adjectives for matching
-- turn and event queue system
+- `morph:id:gloss` substitution pattern
+- SubText complex substitution patterns
+- Describable
+- Localization adapter
