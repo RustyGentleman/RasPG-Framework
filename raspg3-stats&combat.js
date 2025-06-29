@@ -4,12 +4,9 @@
 if (!RasPG)
 	throw new Error('[RasPG - Stats&Combat] Framework core missing'
 		+'\nMaybe incorrect import/load order')
-RasPG.registerExtension('Stats&Combat', {
-	author: 'Rasutei',
-	version: '0.0.0-dev',
-	description: 'An extension including resources for combat systems, such as stats and stat modifiers (e.g. HP, attack), and status effects (e.g. buffs/debuffs). Also includes a turn-based combat system module.',
-})
-RasPG.debug.exceptions.notStatType = () => new TypeError(`[RasPG - Stats&Combat] Expected instance or name of StatType`)
+
+
+RasPG.dev.exceptions.NotStatType = () => new TypeError(`[RasPG - Stats&Combat][NotStatType] Expected instance or name of StatType`)
 
 //# Module
 
@@ -38,8 +35,8 @@ class StatType {
 	constructor(name, options) {
 		HookModule.run('before:StatType.constructor', arguments, this)
 
-		RasPG.debug.validate.type('StatType.constructor.name', name, 'string')
-		RasPG.debug.validate.props('StatType.constructor.options', options, false, {
+		RasPG.dev.validate.type('StatType.constructor.name', name, 'string')
+		RasPG.dev.validate.props('StatType.constructor.options', options, false, {
 			calculation: ['function', '(stat: Stat) => number'],
 			roundToNearest: 'number'
 		})
@@ -65,7 +62,7 @@ class StatType {
 	static find(type) {
 		HookModule.run('StatType.find', arguments, this)
 
-		RasPG.debug.validate.type('StatType.find', type, 'string')
+		RasPG.dev.validate.type('StatType.find', type, 'string')
 
 		return this.#all.get(type) || null
 	}
@@ -80,13 +77,13 @@ class StatType {
 		if (typeof type === 'string') {
 			const actualType = this.find(type)
 			if (!actualType) {
-				RasPG.debug.logs.elementNotRegisteredInCollection(type, 'StatType.#all')
+				RasPG.dev.logs.elementNotRegisteredInCollection(type, 'StatType.#all')
 				return null
 			}
 			return actualType
 		}
 
-		throw RasPG.debug.exceptions.notStatType()
+		throw RasPG.dev.exceptions.NotStatType()
 	}
 
 	/** Calculates a given stat's final value. In order: runs the given calculation, applies `toPrecision()`, then rounds to nearest, if set.
@@ -122,7 +119,7 @@ class Stat {
 	constructor(type, initialValue) {
 		HookModule.run('before:Stat.constructor', arguments, this)
 
-		RasPG.debug.validate.type('Stat.constructor.initialValue', initialValue, 'number')
+		RasPG.dev.validate.type('Stat.constructor.initialValue', initialValue, 'number')
 		const actualType = StatType.resolve(type)
 
 		this.#type = actualType.name
@@ -156,9 +153,9 @@ class Statful extends Component {
 	get(stat) {
 		HookModule.run('Statful.instance.get', arguments, this)
 
-		RasPG.debug.validate.type('Statful.get.stat', stat, 'string')
+		RasPG.dev.validate.type('Statful.get.stat', stat, 'string')
 		if (!this.#stats.has(stat)) {
-			RasPG.debug.RasPG.debug.logs.elementNotRegisteredInCollection(variable, 'Stateful.instance.data')
+			RasPG.dev.RasPG.dev.logs.elementNotRegisteredInCollection(variable, 'Stateful.instance.data')
 			return null
 		}
 
@@ -172,7 +169,7 @@ class Statful extends Component {
 	set(stat, value) {
 		HookModule.run('before:Statful.instance.set', arguments, this)
 
-		RasPG.debug.validate.types('Statful.instance.set', {
+		RasPG.dev.validate.types('Statful.instance.set', {
 			stat: [stat, 'string'],
 			value: [value, 'number'],
 		})
@@ -200,7 +197,7 @@ class Statful extends Component {
 	modify(stat, change) {
 		HookModule.run('before:Statful.instance.modify', arguments, this)
 
-		RasPG.debug.validate.types('Statful.instance.modify', {
+		RasPG.dev.validate.types('Statful.instance.modify', {
 			stat: [stat, 'string'],
 			change: [change, 'number'],
 		})
@@ -227,7 +224,7 @@ class Statful extends Component {
 	give(stat, initialValue) {
 		HookModule.run('before:Statful.instance.give', arguments, this)
 
-		RasPG.debug.validate.types('Statful.instance.give', {
+		RasPG.dev.validate.types('Statful.instance.give', {
 			stat: [stat, 'string'],
 			initialValue: [initialValue, 'number'],
 		})
@@ -260,9 +257,18 @@ class Statful extends Component {
 		HookModule.run('after:Statful.instance.define', arguments, this)
 		return this
 	}
-} RasPG.registerComponent('Statful', Statful)
+}
 class Combatant extends Component {
 	static reference = '_combat'
 	static requires = [Actionable, Agentive, Statful]
 	//? Note: Expected to be bundled with the Combat module.
-} RasPG.registerComponent('Combatant', Combatant)
+}
+
+new Extension('Stats&Combat', {
+	author: 'Rasutei',
+	version: '0.0.0-dev',
+	description: 'An extension including resources for combat systems, such as stats and stat modifiers (e.g. HP, attack), and status effects (e.g. buffs/debuffs). Also includes a turn-based combat system module.',
+})
+	.addClass('StatType', StatType)
+	.addComponent('Statful', Statful)
+	.addComponent('Combatant', Combatant)
