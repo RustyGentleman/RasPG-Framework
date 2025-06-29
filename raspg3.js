@@ -324,8 +324,12 @@ class RasPG {
 		saveModule: undefined,
 		modules: new Map(),
 		classes: new Map(),
+		/** @type {Map<string, typeof Component>} */
 		components: new Map(),
+		/** @type {Map<string, Extension>} */
 		extensions: new Map(),
+		/** @type {Map<string, LocalizationAdapter>} */
+		localizationAdapters: new Map()
 	}
 	static dev = {
 		exceptions: {
@@ -343,11 +347,9 @@ class RasPG {
 				+'\nMaybe typo or forgot to pass'),
 			DeserializerMissingComponent: (component) => new Error(`[RasPG][DeserializerMissingComponent] Deserialization error: missing component "${component}"`
 				+'\nMaybe typo, got renamed, or from missing extension'),
-			MissingRequiredContext: (label) => new Error(`[RasPG][MissingRequiredContext] Missing required context: "${label}"`
-				+'\nMaybe wrong label, pushed to wrong label, or forgot to push'),
 			BrokenStringFormat: (string, format) => new Error(`[RasPG][BrokenStringFormat] String format broken: "${string}" must conform to "${format}"`
 				+'\nMaybe typo, maybe forgot; often enforced for good reasons'),
-			TemplateReferenceViolation: (domainPath, reference) => new Error(`[RasPG][TemplateReferenceViolation] Attempted operation "${domainPath}" during templating would incur exclusive relationship between static object and template instance`
+			TemplateReferenceViolation: (domainPath, reference) => new Error(`[RasPG][TemplateReferenceViolation] Attempted operation "${domainPath}" during templating includes reference "${reference}", which would incur an exclusive relationship between static object and template instance`
 				+'\nMaybe typo, maybe forgot; often enforced for good reasons'),
 		},
 		logs: {
@@ -383,12 +385,17 @@ class RasPG {
 			},
 			componentReferenceCollision: (objectID, reference, componentPresent, componentAdded) => {
 				if (RasPG.config.logWarnings)
-					console.warn(`[RasPG][componentReferenceCollision] Component "${componentAdded}" attempted to add reference "${reference}"${objectID? ` to object "${objectID}"` : ''}, which component "${componentPresent}" shares${objectID? ', and will be overwritten' : ''}`
+					console.warn(`[RasPG][componentReferenceCollision] Component "${componentAdded.name}" attempted to add reference "${reference}"${objectID? ` to object "${objectID}"` : ''}, which component "${componentPresent.name}" shares${objectID? ', and will be overwritten' : ''}`
 						+'\nLikely a conflict between extensions; consider manually changing one of the components\' reference, or using GameObject.instance.component(Component)')
 				return false
 			},
 		},
 		validate: {
+			/** Throws an exception if the value is mistyped. Supports all `typeof` returns, string literals (with ' or "), arrays of type (`type[]` or `Array<type>`) with ors (`Array<type1 | type2>`), RegExp instance, GameObject instance.
+			 * @param {string} path
+			 * @param {any} value
+			 * @param {string | [string, string]} typeSpec
+			 */
 			type(path, value, typeSpec) {
 				if (!RasPG.config.parameterTypeEnforcement)
 					return
@@ -442,8 +449,7 @@ class RasPG {
 					return types
 				}
 			},
-			/**
-			 * Throws an exception if required properties are missing or mistyped, or if present optional properties are mistyped.
+			/** Throws an exception if required properties are missing or mistyped, or if present optional properties are mistyped. See documentation for `validate.type` for supported types.
 			 * @param {string} path Domain(.instance).method.param
 			 * @param {Object} object Object to be validated
 			 * @param {{ [prop: string]: string | [string, string] } | false} required Required properties and their types
@@ -475,8 +481,7 @@ class RasPG {
 
 				return true
 			},
-			/**
-			 * Throws an exception if any of the passed variables are mistyped.
+			/** Throws an exception if any of the passed variables are mistyped. See documentation for `validate.type` for supported types.
 			 * @param {string} path Domain(.instance).method
 			 * @param {{[param: string]: [any, string | [string, string]]}} checks
 			 */
@@ -487,7 +492,7 @@ class RasPG {
 					this.type(path+'.'+param, value, typeSpec)
 				return true
 			},
-			/**
+			/** 
 			 * @param {string} elementName
 			 * @param {string} version
 			 */
@@ -496,6 +501,45 @@ class RasPG {
 				if (!split)
 					throw new Error(`[RasPG - Core] Malformed versioning on "${elementName}": "${version}"`
 						+'\nRequired format: MAJOR.MINOR.PATCH[-BRANCH]')
+			},
+			/**
+			 * @param {string} objectID
+			 * @param {{}} present
+			 * @param {{}} required
+			 */
+			linguisticMetadata(objectID, present, required, optional) {
+				const allRequired = []
+				const allOptional = []
+				if (typeof present.type === 'string') {
+					if (present.type in required)
+						allRequired.push(...required[present.type])
+					else
+						RasPG.dev.logs.elementNotRegisteredInCollection(present.type, `LocalizationAdapter.instance.metadataRequired`)
+					if (present.type in optional)
+						allOptional.push(...optional[present.type])
+				}
+				else if (present.type instanceof Array)
+					for (const type of present.type) {
+						if (type in required)
+							allRequired.push(...required[type])
+						else
+							RasPG.dev.logs.elementNotRegisteredInCollection(type, `LocalizationAdapter.instance.metadataRequired`)
+						if (type in optional)
+							allOptional.push(...optional[type])
+					}
+
+				for (const [metadata, values] of Object.entries(allRequired))
+					if (!(metadata in present))
+						throw new Error(`[RasPG - Core] Object with ID "${objectID}" is missing required linguistic metadata "${metadata}" for object type "${present.type}"`
+							+'\nMaybe typo, forgot to set, or wrong object type; consult documentation and/or required metadata on current LocalizationAdapter')
+					else if (!values.includes(present[metadata]))
+						throw new Error(`[RasPG - Core] Object with ID "${objectID}" has an unexpected value under linguistic metadata "${metadata}"`
+							+'\nMaybe typo; consult documentation and/or required/optional metadata on current LocalizationAdapter')
+
+				for (const [metadata, values] of Object.entries(allOptional))
+					if (metadata in present && !values.include(present[metadata]))
+						throw new Error(`[RasPG - Core] Object with ID "${objectID}" has an unexpected value under linguistic metadata "${metadata}"`
+							+'\nMaybe typo; consult documentation and/or required/optional metadata on current LocalizationAdapter')
 			}
 		},
 		/** Returns the ID in the collection that matches the query, according to its prefix. `collection` can be Set or Map, if `.find()` mutations are present.
@@ -576,30 +620,26 @@ class RasPG {
 			return false
 		}
 
-		this.runtime.components.set(name, component)
 		if (component.reference) {
 			const existing = Array.from(RasPG.runtime.components.values()).find(e => e.reference === component.reference)
 			if (existing)
 				RasPG.dev.logs.componentReferenceCollision(false, component.reference, existing, component)
 		}
+
+		this.runtime.components.set(name, component)
 		return this
 	}
-	/** Registers an extension to the core framework. Modules, classes and components must be registered separately.
-	 * @param {string} name
-	 * @param {{ description?: string, author?: string, version?: string, repository?: string, minimumCoreVersion?: string }} metadata
+	/** Registers a localization adapter to the core framework.
+	 * @param {LocalizationAdapter} adapter
+	 * @param {string} codeOverride Optional. Registers the adapter under the given code, instead of the code defined in the adapter itself.
 	 */
-	static registerExtension(name, metadata) {
-		if (typeof name !== 'string')
-			throw RasPG.dev.exceptions.BrokenTypeEnforcement('RasPG.registerExtension.name', 'string')
-		if (typeof metadata !== 'object')
-			throw RasPG.dev.exceptions.BrokenTypeEnforcement('RasPG.registerExtension.metadata', 'object')
-		if (this.runtime.extensions.has(name)) {
-			console.warn(`[RasPG - Core] Attempted to register extension "${name}" more than once.`
-				+'\nMaybe importing on or from multiple places')
-			return false
-		}
+	static registerLocalizationAdapter(adapter, codeOverride=false) {
+		if (typeof adapter !== 'object' || !(adapter instanceof LocalizationAdapter))
+			throw RasPG.dev.exceptions.BrokenTypeEnforcement('RasPG.registerLocalizationAdapter.adapter', typeof adapter, 'LocalizationAdapter')
+		if (codeOverride !== false && typeof codeOverride !== 'string')
+			throw RasPG.dev.exceptions.BrokenTypeEnforcement('RasPG.registerLocalizationAdapter.name', 'string')
 
-		this.runtime.extensions.set(name, metadata || {})
+		this.runtime.localizationAdapters.set(codeOverride || adapter.code, adapter)
 		return this
 	}
 }
@@ -665,8 +705,11 @@ class EventModule {
 	static emit(event, data) {
 		HookModule.run('before:EventModule.emit', arguments, this)
 
-		if (this.logInfo)
-			console.info(`[\x1b[36;1mEvent\x1b[0m - \x1b[33m${event}\x1b[0m on \x1b[93m${data.object? 'ID:'+data.object.id : 'object'}\x1b[0m]`)
+		if (this.logInfo) {
+			console.groupCollapsed(`[\x1b[36;1mEvent\x1b[0m - \x1b[33m${event}\x1b[0m on \x1b[93m${data.object? data.object instanceof GameObject? 'ID:'+data.object.id : data.object.name : 'undefined'}\x1b[0m]`)
+			console.info(data)
+			console.groupEnd()
+		}
 
 		if (!this.#listeners.has(event)) return
 
@@ -783,8 +826,11 @@ class HookModule {
 	 * @param {Array<any>} args
 	 */
 	static run(hook, args, object) {
-		if (this.logInfo)
-			console.info(`[\x1b[34;1mHook\x1b[0m - \x1b[33m${hook}\x1b[0m]`)
+		if (this.logInfo) {
+			console.groupCollapsed(`[\x1b[34;1mHook\x1b[0m - \x1b[33m${hook}\x1b[0m]`)
+			console.info('Arguments: ', Array.from(args))
+			console.groupEnd()
+		}
 		if (!this.#hooks.has(hook)) return
 		for (const callback of this.#hooks.get(hook))
 			callback(args, object)
@@ -860,7 +906,7 @@ class ContextModule {
 	/** Returns the object under the given label from the context.
 	 * @param {string} label
 	 * @param {{required: boolean}} options
-	 * @param {boolean} options.required If set strictly to `true`, will throw a MissingRequiredContext exception if the requested context-object stack is empty.
+	 * @param {boolean} options.required If set strictly to `true`, will throw an exception if the requested context-object stack is empty.
 	 */
 	static get(label, options) {
 		HookModule.run('ContextModule.get', arguments, this)
@@ -873,7 +919,8 @@ class ContextModule {
 		if (label in this.#context)
 			return this.#context[label].at(0)
 		else if (options?.required === true)
-			throw RasPG.dev.exceptions.MissingRequiredContext(label)
+			throw new Error(`[RasPG - Core] Missing required context: "${label}"`
+				+'\nMaybe wrong label, pushed to wrong label, or forgot to push')
 		else
 			return undefined
 	}
@@ -1397,7 +1444,74 @@ class Component {
 		return this.constructor.serializer(this)
 	}
 } RasPG.registerClass('Component', Component)
+class LocalizationAdapter {
+	author
+	version
+	notes
+	code
+	tokens
+	/** @type {{[objectType: string]: {[feature: string]: any | any[]}}} */
+	metadataRequired
+	/** @type {{[objectType: string]: {[feature: string]: any | any[]}}} */
+	metadataOptional
+	/** @type {(parts: {[baseToken: string]: string[]}, object: GameObject) => string} */
+	morpher
+	config
 
+	/**
+	 * @param {{author: string, version: string, code: string, tokens: {[base: string]: string[] | {[inflectionType: string]: string}}, metadataRequired: {[objectType: string]: {[feature: string]: any | any[]}}, metadataOptional?: {[objectType: string]: {[feature: string]: any | any[]}}, morpher: (parts: {[baseToken: string]: string[]}, object: GameObject) => string, notes?: string, config?: {[setting: string]: any}}} options
+	 * @param {string} options.author The localization pack's author.
+	 * @param {string} options.version The localization pack version.
+	 * @param {string} options.code Language and, optionally, region code. Convention: all lowercase, dash-separated.
+	 * @param {{[base: string]: string[] | {[inflectionType: string]: string}}} options.tokens Base word-type tokens, each listing what glossing abbreviations apply to it and, optionally, an accompanying function that applies the morphing (only recommended if the language has simple inflections).
+	 * @param {{[objectType: string]: {[feature: string]: any[]}}} options.metadataRequired Description of linguistic metadata required by different types of objects (e.g. people, objects, actions), each described as an array of expected/accepted values.
+	 * @param {{[objectType: string]: {[feature: string]: any[]}}} [options.metadataOptional] Description of linguistic metadata usable by different types of objects (e.g. people, objects, actions), each described as an array of expected/accepted values.
+	 * @param {(parts: {[baseToken: string]: string[]}, object: GameObject) => string} options.morpher Function that takes the GameObject and gloss, and returns a grammatically correct clause.
+	 * @param {string} [options.notes] Optional. Notes and other information regarding the localization pack.
+	 * @param {{[setting: string]: any}} [options.config] Optional. Any settings made available to the developer using the adapter.
+	 */
+	constructor(options) {
+		RasPG.dev.validate.props('LocalizationPack.constructor.options', options, {
+			author: 'string',
+			version: 'string',
+			code: 'string',
+			morpher: 'function'
+		}, {
+			notes: 'string',
+			config: ['object', '{[setting: string]: any}']
+		})
+
+		this.author = options.author
+		this.version = options.version
+		this.code = options.code
+		this.tokens = options.tokens
+		this.metadataRequired = options.metadataRequired
+		this.metadataOptional = options.metadataOptional
+		this.morpher = options.morpher
+		if (options?.notes)
+			this.notes = options.notes
+		if (options?.config)
+			this.config = options.config
+	}
+
+	morph(objectID, gloss) {
+		const actualObject = GameObject.resolve(objectID, { component: Describable, operation: 'LocalizationAdapter.instance.morph' })
+		if (!actualObject)
+			return actualObject
+		RasPG.dev.validate.linguisticMetadata(actualObject.id, actualObject._description.metadata, this.metadataRequired, this.metadataOptional)
+
+		const parts = gloss
+			.split('-')
+			.map(e => e.split('.'))
+			.reduce((tokens, current) => {
+				const r = {}
+				r[current[0]] = current.slice(1)
+				return Object.assign(tokens, r)
+			}, {})
+
+		return this.morpher(parts, actualObject)
+	}
+}
 class Extension {
 	name
 	description
@@ -1438,12 +1552,15 @@ class Extension {
 	}
 	addClass(name, clss) {
 		this.classes.set(name, clss)
+		return this
 	}
 	addModule(name, module) {
 		this.modules.set(name, module)
+		return this
 	}
 	addComponent(name, component) {
 		this.components.set(name, component)
+		return this
 	}
 	register() {
 		if (this.runtime.extensions.has(this.name)) {
@@ -1604,7 +1721,7 @@ class Stringful extends Component {
 	static get(key, split) {
 		HookModule.run('Stringful.global.get', arguments, this)
 
-		RasPG.debug.validate.type('Stringful.global.get.key', key, 'string')
+		RasPG.dev.validate.type('Stringful.global.get.key', key, 'string')
 
 
 		const parentID = split?.parentID
@@ -1633,7 +1750,7 @@ class Stringful extends Component {
 	static set(key, string) {
 		HookModule.run('before:Stringful.global.set', arguments, this)
 
-		RasPG.debug.validate.types('Stringful.global.set', {
+		RasPG.dev.validate.types('Stringful.global.set', {
 			key: [key, 'string'],
 			string: [string, ['string | function', 'string | () => string']]
 		})
@@ -1645,7 +1762,8 @@ class Stringful extends Component {
 		EventModule.emit('strings.global.set', {
 			key: actualKey,
 			previous,
-			current: string
+			current: string,
+			object: Stringful
 		})
 		HookModule.run('after:Stringful.global.set', arguments, this)
 		return true
@@ -1735,6 +1853,75 @@ class Stringful extends Component {
 		return this
 	}
 }  RasPG.registerComponent('Stringful', Stringful)
+class Describable extends Component {
+	static reference = '_description'
+	static requires = [Stringful]
+	canonicalName
+	nouns
+	adjectives
+	metadata
+
+	get canonicalName() {
+		return this.parent._strings.get('description.name')
+	}
+	get description() {
+		return this.parent._strings.get('description.description')
+	}
+
+	/** Sets the name and description for an object. Both can be string or string-returning functions. Returns the component instance back for further operations.
+	 * @param {{canonicalName: string | () => string, nouns: string[], adjectives: string[], description: string | () => string, }} options
+	 * @param options.canonicalName Convention: no article, singular, all lowercase (unless proper name).
+	 * @param options.nouns Convention: no article, singular, all lowercase, first in array should reflect canonical name.
+	 * @param options.adjectives Convention: no article, singular, all lowercase, first in array should reflect canonical name.
+	 * @param options.description Convention: full sentence(s), first letter uppercase, full stop at the end.
+	 */
+	describe(options) {
+		HookModule.run('before:Describable.instance.describe', arguments, this)
+
+		RasPG.dev.validate.props('Describable.instance.describe.options', options, {
+			canonicalName: ['string | function', 'string | () => string'],
+			nouns: 'string[]',
+			adjectives: 'string[]',
+			description: ['string | function', 'string | () => string']
+		}, {
+			withArticle: ['string | function', 'string | () => string'],
+			plural: ['string | function', 'string | () => string'],
+		})
+
+		this.parent._strings.set('sense.name', options.canonicalName)
+		this.parent._strings.set('sense.description', options.description)
+		if ('withArticle' in options)
+			this.parent._strings.set('sense.withArticle', options.withArticle)
+		if ('plural' in options)
+			this.parent._strings.set('sense.plural', options.plural)
+
+		EventModule.emit('descriptions.set', {
+			object: this.parent,
+			name: options.canonicalName,
+			description: options.description,
+			withArticle: options.withArticle || undefined,
+			plural: options.plural || undefined,
+		})
+		HookModule.run('after:Describable.instance.describe', arguments, this)
+		return this
+	}
+	/** Returns the object's name, with all given options applied, if valid.
+	 * @param {{article?: boolean, plural?: boolean, count?: boolean}} options
+	 * @param {boolean} [options.article] Defaults to `false`. Whether to include an indefinite article.
+	 * @param {boolean} [options.plural] Defaults to `false`. Whether the noun should be plural.
+	 * @param {boolean} [options.count] Defaults to `true`. Whether to include the count, if the Countable component is also present, using the string key 'countShape'.
+	 */
+	getName(options) {
+		HookModule.run('before:Describable.instance.getName', arguments, this)
+		// Guard clauses
+
+		let name = this.canonicalName
+		if (options?.article)
+			name = this.parent._strings.get('')
+
+		HookModule.run('after:Describable.instance.getName', arguments, this)
+	}
+}  RasPG.registerComponent('Describable', Describable)
 class Perceptible extends Component {
 	static reference = '_perceptions'
 	static requires = [Stringful]
@@ -1772,56 +1959,6 @@ class Perceptible extends Component {
 
 	get perceptions() {
 		return new Map(this.#perceptions)
-	}
-	get name() {
-		return this.parent._strings.get('sense.name')
-	}
-	get description() {
-		return this.parent._strings.get('sense.description')
-	}
-	get withArticle() {
-		return this.parent._strings.get('sense.withArticle')
-			|| RasPG.utils.lang.en.withArticle(this.parent._strings.get('sense.name'))
-	}
-	get plural() {
-		return this.parent._strings.get('sense.plural')
-			|| RasPG.utils.lang.en.plural(this.parent._strings.get('sense.name'))
-	}
-
-	/** Sets the name and description for an object. Both can be string or string-returning functions. Returns the component instance back for further operations.
-	 * @param {{ name: string | () => string, description: string | () => string, withArticle?: string | () => string, plural?: string | () => string}} options
-	 * @param options.name Convention: no article, singular, all lowercase (unless proper name).
-	 * @param options.description Convention: full sentence(s), first letter uppercase, full stop at the end.
-	 * @param options.withArticle Optional. Convention: article, singular, all lowercase (unless proper name)
-	 * @param options.plural Optional. Convention: no article, plural, all lowercase (unless proper name).
-	 */
-	describe(options) {
-		HookModule.run('before:Perceptible.instance.describe', arguments, this)
-
-		RasPG.dev.validate.props('Perceptible.instance.describe.options', options, {
-			name: ['string | function', 'string | () => string'],
-			description: ['string | function', 'string | () => string']
-		}, {
-			withArticle: ['string | function', 'string | () => string'],
-			plural: ['string | function', 'string | () => string'],
-		})
-
-		this.parent._strings.set('sense.name', options.name)
-		this.parent._strings.set('sense.description', options.description)
-		if ('withArticle' in options)
-			this.parent._strings.set('sense.withArticle', options.withArticle)
-		if ('plural' in options)
-			this.parent._strings.set('sense.plural', options.plural)
-
-		EventModule.emit('perceptions.descriptions.set', {
-			object: this.parent,
-			name: options.name,
-			description: options.description,
-			withArticle: options.withArticle || undefined,
-			plural: options.plural || undefined,
-		})
-		HookModule.run('after:Perceptible.instance.describe', arguments, this)
-		return this
 	}
 	/** Add a description for a given sense, in a particular context (i.e. sight direct, smell inRoom). Returns `true`, if there was a perception set for the given sense and context and it was overwritten, and `false`, if there wasn't.
 	 * @param {string} sense Convention: no spaces, camelCase.
