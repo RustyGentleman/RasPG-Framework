@@ -58,7 +58,7 @@ class RasPG {
 				 * @param {string} noun
 				 */
 				plural(noun) {
-					if (noun.endsWith('y') && !/[aeiou]y$/i.test(noun))
+					if (noun.endsWith('y') && !noun.match(/[aeiou]y$/i))
 						return noun.slice(0, -1) + 'ies'
 					if (noun.endsWith('s') || noun.endsWith('x') || noun.endsWith('z') || noun.endsWith('ch') || noun.endsWith('sh'))
 						return noun+'es'
@@ -1453,7 +1453,7 @@ class LocalizationAdapter {
 	/** @type {{[objectType: string]: {[feature: string]: any | any[]}}} */
 	metadataRequired
 	/** @type {{[objectType: string]: {[feature: string]: any | any[]}}} */
-	metadataOptional
+	metadataOptional = {}
 	/** @type {(parts: {[baseToken: string]: string[]}, object: GameObject) => string} */
 	morpher
 	config
@@ -1510,6 +1510,32 @@ class LocalizationAdapter {
 			}, {})
 
 		return this.morpher(parts, actualObject)
+	}
+	/**
+	 * @param {{objectType: string | string[], overrides?: {[baseToken: string]: [string[], string | string[]][]}, [feature: string]: any}} metadata
+	 * @param {string} part
+	 * @param {string[]} glosses
+	 */
+	findOverride(metadata, part, glosses) {
+		if (!metadata?.overrides || !metadata.overrides[part])
+			return false
+
+		const options = Array.from(metadata.overrides[part])
+		for (const [index, [toMatch, _]] of Object.entries(Array.from(options)))
+			for (const gloss of glosses)
+				if (toMatch.includes(gloss))
+					options[index][0][toMatch.indexOf(gloss)] = true
+				else if (toMatch.includes(gloss+'?'))
+					options[index][0][toMatch.indexOf(gloss+'?')] = true
+				else if (!toMatch.includes('*'))
+					options[index][0].push(false)
+
+		const found = options.find(([matches]) => matches.every(e => e === true))
+			|| options.find(([matches]) => matches.every(e => e === true || typeof e === 'string' && (e.endsWith('?') || e === '*')))
+
+		if (found)
+			return found[1]
+		return false
 	}
 }
 class Extension {
@@ -1869,7 +1895,7 @@ class Describable extends Component {
 	}
 
 	/** Sets the name and description for an object. Both can be string or string-returning functions. Returns the component instance back for further operations.
-	 * @param {{canonicalName: string | () => string, nouns: string[], adjectives: string[], description: string | () => string, metadata?: {objectType: string | string[], overrides?: {[baseToken: string]: [string[], string]}, [feature: string]: any}}} options
+	 * @param {{canonicalName: string | () => string, nouns: string[], adjectives: string[], description: string | () => string, metadata?: {objectType: string | string[], overrides?: {[baseToken: string]: [string[], string | string[]][]}, [feature: string]: any}}} options
 	 * @param options.canonicalName Convention: no article, singular, all lowercase (unless proper name).
 	 * @param options.nouns Convention: no article, singular, all lowercase, first in array should reflect canonical name.
 	 * @param options.adjectives Convention: no article, singular, all lowercase, first in array should reflect canonical name.
