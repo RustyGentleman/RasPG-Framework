@@ -2004,38 +2004,16 @@ class Describable extends Component {
 			plural: ['string | function', 'string | () => string'],
 		})
 
-		this.parent._strings.set('sense.name', options.canonicalName)
-		this.parent._strings.set('sense.description', options.description)
-		if ('withArticle' in options)
-			this.parent._strings.set('sense.withArticle', options.withArticle)
-		if ('plural' in options)
-			this.parent._strings.set('sense.plural', options.plural)
+		this.parent._strings.set('desc.name', options.canonicalName)
+		this.parent._strings.set('desc.description', options.description)
 
 		EventModule.emit('descriptions.set', {
 			object: this.parent,
 			name: options.canonicalName,
 			description: options.description,
-			withArticle: options.withArticle || undefined,
-			plural: options.plural || undefined,
 		})
 		HookModule.run('after:Describable.instance.describe', arguments, this)
 		return this
-	}
-	/** Returns the object's name, with all given options applied, if valid.
-	 * @param {{article?: boolean, plural?: boolean, count?: boolean}} options
-	 * @param {boolean} [options.article] Defaults to `false`. Whether to include an indefinite article.
-	 * @param {boolean} [options.plural] Defaults to `false`. Whether the noun should be plural.
-	 * @param {boolean} [options.count] Defaults to `true`. Whether to include the count, if the Countable component is also present, using the string key 'countShape'.
-	 */
-	getName(options) {
-		HookModule.run('before:Describable.instance.getName', arguments, this)
-		// Guard clauses
-
-		let name = this.canonicalName
-		if (options?.article)
-			name = this.parent._strings.get('')
-
-		HookModule.run('after:Describable.instance.getName', arguments, this)
 	}
 }  RasPG.registerComponent('Describable', Describable)
 class Perceptible extends Component {
@@ -2219,6 +2197,22 @@ class Tangible extends Component {
 			return undefined
 		return GameObject.resolve(this.#location)
 	}
+	get locationArray() {
+		let location = this.location
+		const array = [location]
+		while (location instanceof GameObject) {
+			if (location.hasComponent(Tangible)) {
+				location = location._location.location
+				array.push(location)
+			}
+			else
+				break
+		}
+		return array
+	}
+	get locationDeepest() {
+		return this.locationArray.at(-1)
+	}
 
 	/** Moves the object to a new location. Returns `true`, if successful, `null`, if the location is not found, or `false`, if an error occurred.
 	 * @param {Room | GameObject | string} location
@@ -2288,11 +2282,15 @@ class Tangible extends Component {
 	samePlaceAs(object) {
 		HookModule.run('Tangible.instance.samePlaceAs', arguments, this)
 
-		let actualObject = GameObject.resolve(object, { component: Tangible, operation: 'Tangible.instance.samePlaceAs' })
+		if (this.location === 'undefined')
+			return false
+		const actualObject = GameObject.resolve(object, { component: Tangible, operation: 'Tangible.instance.samePlaceAs' })
 		if (!actualObject)
 			return null
+		if (actualObject._location.location === undefined)
+			return false
 
-		return actualObject._location.location === this.location
+		return actualObject._location.locationArray.includes(this.location)
 	}
 }  RasPG.registerComponent('Tangible', Tangible)
 class Countable extends Component {
