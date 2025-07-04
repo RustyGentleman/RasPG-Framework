@@ -969,6 +969,7 @@ class ContextModule {
 class SubTextModule {
 	static #conditionals = new Map()
 	static #substitutions = new Map()
+	static #complexSubstitutions = new Map()
 
 	/** Registers a string-embedded conditional type. Callback function must make use of the ContextModule. Returns `true`, if the identifier wasn't registered, and `false`, if it was and was overwritten.
 	 *
@@ -992,7 +993,7 @@ class SubTextModule {
 		HookModule.run('after:SubTextModule.registerConditional', arguments, this)
 		return ret
 	}
-	/** Registers a string substitution template. Callback function must make use of the ContextModule. Returns `true`, if the identifier wasn't registered, and `false`, if it was and was overwritten.
+	/** Registers a string substitution template. Callback function must make use of the ContextModule.
 	 *
 	 * String substitutions follow the pattern `%identifier%`. Strings on context objects can also be substituted in via `%contextLabel.stringKey%`
 	 * @param {string} identifier Must have no whitespaces or dots. Convention: camelCase.
@@ -1008,13 +1009,35 @@ class SubTextModule {
 		if (identifier.match(/[\s.]+/))
 			throw RasPG.dev.exceptions.BrokenStringFormat(identifier, 'no whitespaces')
 
-		let ret = true
 		if (this.#substitutions.has(identifier))
-			ret = false
+			throw RasPG.dev.exceptions.GeneralIDConflict('SubTextModule.registerSubstitution', identifier)
 		this.#substitutions.set(identifier, callback)
 
 		HookModule.run('after:SubTextModule.registerSubstitution', arguments, this)
-		return ret
+	}
+	/** Registers a complex string substitution template. Callback function must make use of the ContextModule.
+	 *
+	 * String substitutions follow the pattern `%identifier%`. Strings on context objects can also be substituted in via `%contextLabel.stringKey%`
+	 * @param {string} identifier Must have no whitespaces or dots. Convention: camelCase.
+	 * @param {RegExp[]} fields Array defining the number and required shape of data fields. Data fields should be separated between themselves and the identifier by the character ':'.
+	 * @param {() => string} callback
+	 */
+	static registerComplexSubstitution(identifier, fields, callback) {
+		HookModule.run('before:SubTextModule.registerComplexSubstitution', arguments, this)
+
+		RasPG.dev.validate.types('SubTextModule.registerComplexSubstitution', {
+			identifier: [identifier, 'string'],
+			fields: [fields, 'RegExp[]'],
+			callback: [callback, ['function', '() => boolean']],
+		})
+		if (identifier.match(/[\s.]+/))
+			throw RasPG.dev.exceptions.BrokenStringFormat(identifier, 'no whitespaces')
+
+		if (this.#substitutions.has(identifier))
+			throw RasPG.dev.exceptions.GeneralIDConflict('SubTextModule.registerComplexSubstitution', identifier)
+		this.#complexSubstitutions.set(identifier, [fields, callback])
+
+		HookModule.run('after:SubTextModule.registerComplexSubstitution', arguments, this)
 	}
 	/** Parses any and all embedded conditionals embedded in the given string.
 	 *
@@ -1068,28 +1091,93 @@ class SubTextModule {
 			for (const [inplace, identifier] of matches) {
 				const substitution = this.#substitutions.get(identifier)
 				if (substitution) {
-					string = string.replace(inplace, substitution() || '')
+					const result = substitution()
+					string = string.replace(inplace, result || '{MISSING}')
+					if (!result)
+						string = string.replace(/ \{MISSING\}|\{MISSING\} /, '')
 					continue
 				}
 				RasPG.dev.logs.elementNotRegisteredInCollection(identifier, 'SubTextModule.#substitutions')
 				const parts = identifier.match(/^([^.]+)\.(.+)$/)
 				if (!parts) {
-					string = string.replace(inplace, '')
+					string = string
+						.replace(inplace, '{MISSING}')
+						.replace(/ \{MISSING\}|\{MISSING\} /, '')
 					continue
 				}
 				const [, contextLabel, stringKey] = parts
 				const contextObject = ContextModule.get(contextLabel)
 				if (!contextObject || !(contextObject instanceof GameObject) || !contextObject.hasComponent(Stringful)) {
-					string = string.replace(inplace, '')
+					string = string
+						.replace(inplace, '{MISSING}')
+						.replace(/ \{MISSING\}|\{MISSING\} /, '')
 					continue
 				}
 				const stringValue = contextObject._strings.get(stringKey)
 				if (stringValue)
 					string = string.replace(inplace, stringValue)
+				else {
+					string = string
+						.replace(inplace, '{MISSING}')
+						.replace(/ \{MISSING\}|\{MISSING\} /, '')
+				}
 			}
 		}
 
 		HookModule.run('after:SubTextModule.parseSubstitutions', arguments, this)
+		return string
+	}
+	/** Parses any and all complex string substitutions embedded in the given string.
+	 *
+	 * Complex string substitutions follow the pattern `%identifier:field1:field2%`, with the number of fields dictated by the substitution corresponding to the identifier.
+	 * @param {string} string
+	 */
+	static parseComplexSubstitutions(string) {
+		HookModule.run('before:SubTextModule.parseComplexSubstitutions', arguments, this)
+
+		RasPG.dev.validate.type('SubTextModule.parseComplexSubstitutions.string', string, 'string')
+
+		let previous
+		while(true) {
+			if (!string.match(/%[^%]+?%/) || string == previous)
+				break
+			previous = string
+
+			const matches = Array.from(string.matchAll(/%([^%]+?)%/g))
+
+			for (const [inplace, contents] of matches) {
+				const [identifier, ...data] = contents.split(':')
+				if (!this.#complexSubstitutions.has(identifier)) {
+					RasPG.dev.logs.elementNotRegisteredInCollection(identifier, 'SubTextModule.#complexSubstitutions')
+					continue
+				}
+				const [fields, substitution] = this.#complexSubstitutions.get(identifier)
+
+				if (data.length !== fields.length) {
+					if (RasPG.config.logWarnings)
+						console.warn(`[RasPG - Core] Incorrect number of data fields for identifier "${identifier}" in substitution request "${inplace}"`
+							+'\nMaybe forgot a field, or typo')
+					continue
+				}
+				let fieldsOkay = true
+				for (const index in data)
+					if (!data[index].match(fields[index])) {
+						if (RasPG.config.logWarnings)
+							console.warn(`[RasPG - Core] Data field "${data[index]}" does not match pattern "${fields[index]}" for identifier "${identifier}" in substitution request "${inplace}"`
+								+'\nMaybe typo, or malformed pattern')
+						fieldsOkay = false
+					}
+				if (!fieldsOkay)
+					continue
+
+				const result = substitution(data)
+				string = string.replace(inplace, result || '{MISSING}')
+				if (!result)
+					string = string.replace(/ \{MISSING\}|\{MISSING\} /, '')
+			}
+		}
+
+		HookModule.run('after:SubTextModule.parseComplexSubstitutions', arguments, this)
 		return string
 	}
 	static parse(string) {
@@ -1271,6 +1359,7 @@ class GameObject {
 	 */
 	static resolve(id, options) {
 		HookModule.run('GameObject.resolve', arguments, this)
+		/** @type {GameObject} */
 		let object
 
 		if (typeof id === 'object' && id instanceof this)
