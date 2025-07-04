@@ -14,7 +14,7 @@ new LocalizationAdapter({
 		'1PL': ['M', 'F', 'N', 'NH', 'POSS', 'R'],
 		'2PL': ['M', 'F', 'N', 'NH', 'POSS', 'R'],
 		'3PL': ['M', 'F', 'N', 'NH', 'POSS', 'R', 'ACC', 'DAT'],
-		'VERB': ['PTCP', 'PRS', 'PST', 'FUT', 'IND', 'PRF', 'CONT']
+		'VERB': ['IND', 'PTCP', 'PRS', 'PST', 'FUT', 'PRF', 'CONT']
 	},
 	metadataRequired: {
 		person: {
@@ -36,7 +36,7 @@ new LocalizationAdapter({
 		const results = {}
 		const fallbacks = {}
 
-		for (const token of ['1SG', '2SG', '3SG', '1PL', '2PL', '3PL', 'COUNT', 'NOUN', 'ART', 'ADJ', 'VERB']) {
+		for (const token of ['1SG', '2SG', '3SG', '1PL', '2PL', '3PL', 'COUNT', 'NOUN', 'ADJ', 'ART', 'VERB']) {
 			const [part, glosses] = Object.entries(parts).find(e => e[0].match(new RegExp('^'+token)))
 			switch (part) {
 				case '1SG':
@@ -48,8 +48,10 @@ new LocalizationAdapter({
 					let gender = ['M', 'F', 'N', 'NH'].find(e => glosses.includes(e))
 					if (!gender)
 						glosses.push(gender = metadata.gender?? this.config.defaults.pronounGender)
+					else
+						fallbacks.gender = gender
 					fallbacks.person = parseInt(part)
-					fallbacks.gender = gender
+					/** @type {string} */
 					const override = this.findOverride(metadata, part, glosses)
 					results.PRONOUN = override || resolvePronoun(part, glosses)
 					break
@@ -62,18 +64,44 @@ new LocalizationAdapter({
 					const overrides = this.findOverride(metadata, 'NOUN', glosses)
 					results.NOUN = resolveNoun(part, glosses, this.config.noun, overrides)
 					break
-				} case 'ART': {
-					if (!glosses.includes('NDEF') && !glosses.includes('DEF'))
-						glosses.push(this.config.defaults.articleForm)
-					const override = this.findOverride(metadata, part, glosses)
-					results.ART = override || resolveArticle(part, glosses)
-					break
 				} case 'ADJ': {
 					results.ADJ = resolveAdjective(part, this.config.adjective)
 					break
+				} case 'ART': {
+					if (!glosses.includes('NDEF') && !glosses.includes('DEF'))
+						glosses.push(this.config.defaults.articleForm)
+					/** @type {string} */
+					const override = this.findOverride(metadata, part, glosses)
+					results.ART = override || resolveArticle(part, glosses)
+					break
+				} case 'VERB': {
+					if (!glosses.includes('PRS') && !glosses.includes('PST') && !glosses.includes('FUT'))
+						glosses.push(this.options.defaults.verbTense || 'PRS')
+					if (!glosses.includes('IND') && !glosses.includes('PTCP'))
+						glosses.push(this.options.defaults.verbForm || 'IND')
+					if (!glosses.includes('PRF') && !glosses.includes('CONT'))
+						if (this.options.defaults.verbAspect)
+							glosses.push(this.options.defaults.verbAspect)
+					const override = this.findOverride(metadata, 'VERB', glosses)
+					results.VERB = override || resolveVerb(part, glosses)
 				}
 			}
 		}
+
+		if (results.PRONOUN)
+			return results.PRONOUN
+		if (results.NOUN) {
+			let result = []
+			if (results.COUNT)
+				result.push(results.COUNT)
+			else if (results.ART && results.ART !== '{EMPTY}')
+					result.push(results.ART)
+			if (results.ADJ)
+				result.push(results.ADJ)
+			result.push(results.NOUN)
+			return result.join(' ')
+		}
+
 		function resolvePronoun(part, glosses) {
 			const map = [
 				[
@@ -107,6 +135,9 @@ new LocalizationAdapter({
 			else
 				return base
 		}
+		/**
+		 * @return {string}
+		 */
 		function resolveCount(form, config, count=null) {
 			count = count?? object?.component(Countable)?.count?? 1
 
@@ -188,10 +219,17 @@ new LocalizationAdapter({
 				.join(config.wordPartsJoiner)
 		}
 		function resolveNoun(part, glosses, config, overrides) {
+			/** @type {string[]} */
 			const options = overrides?? Array.from(object.component(Describable).nouns)
 			const index = part.match(/\d+/)? +part.match(/\d+/)[0] : false
 			let noun
-			if (!glosses.includes('SG') && !glosses.includes('PL') && 'number' in fallbacks)
+			if (!('number' in fallbacks)) {
+				if (glosses.includes('PL'))
+					fallbacks.number = 'PL'
+				else if (glosses.includes('SG'))
+					fallbacks.number = 'SG'
+			}
+			else if (!glosses.includes('SG') && !glosses.includes('PL'))
 				glosses.push(fallbacks.number)
 
 			if (config.prioritizeCanonical) {
@@ -223,22 +261,8 @@ new LocalizationAdapter({
 
 			return noun
 		}
-		function resolveArticle(glosses) {
-			if (glosses.includes('DEF'))
-				if (
-					('number' in fallbacks && fallbacks.number === 'PL')
-					|| (metadata.type === 'person' || metadata.type.includes('person'))
-					&& 'nameIsProper' in metadata
-					&& metadata.nameIsProper === true
-				)
-					return '{EMPTY}'
-				else
-					return 'the'
-			else if (results.NOUN)
-				return 'aeiouAEIOU'.includes(results.NOUN[0])? 'an' : 'a'
-			else return 'a'
-		}
 		function resolveAdjective(part, config) {
+			/** @type {string[]} */
 			const options = Array.from(object.component(Describable).adjectives)
 			const index = part.match(/\d+/)? +part.match(/\d+/)[0] : false
 			let adj
@@ -256,14 +280,33 @@ new LocalizationAdapter({
 					adj = options[0]
 			return adj
 		}
+		function resolveArticle(glosses) {
+			if (glosses.includes('DEF'))
+				if (
+					('number' in fallbacks && fallbacks.number === 'PL')
+					|| (metadata.type === 'person' || metadata.type.includes('person'))
+					&& 'nameIsProper' in metadata
+					&& metadata.nameIsProper === true
+				)
+					return '{EMPTY}'
+				else
+					return 'the'
+			else if (results.ADJ)
+				return 'aeiouAEIOU'.includes(results.ADJ[0])? 'an' : 'a'
+			else if (results.NOUN)
+				return 'aeiouAEIOU'.includes(results.NOUN[0])? 'an' : 'a'
+			else return 'a'
+		}
+		function resolveVerb(part, glosses) {}
 	},
 	config: {
 		defaults: {
 			pronounGender: 'NH',
 			countForm: 'WORD',
 			articleForm: 'DEF',
+			verbForm: 'IND',
 			verbTense: 'PRS',
-			verbAspect: undefined,
+			verbAspect: false,
 		},
 		count: {
 			zeroWord: 'no',
@@ -285,9 +328,6 @@ new LocalizationAdapter({
 			prioritizeCanonical: true,
 			pickRandomFallback: false,
 		},
-		order: {
-			object: [['ART', 'COUNT'], ['ADJ'], ['NOUN', '3SG', '3PL']]
-		}
 	},
 	notes: `The first ever written LocalizationAdapter for the RasPG Framework, for the English language. Consult the tokens and accepted glosses for guidance, and look over the exposed configs for preferences.\n\nSome notes on usage:`
 		+"\nRegarding NOUN and ADJ overrides:"
