@@ -2858,6 +2858,13 @@ class Agentive extends Component {
 	}
 }  RasPG.registerComponent('Agentive', Agentive)
 
+//# Defaults
+SubTextModule.registerComplexSubstitution('morph', [/[\s\S]+/, /[a-zA-Z0-9.-]+/], ([objectID, gloss]) => {
+	const locale = RasPG.runtime.localizationAdapters.get(RasPG.config.locale)
+	if (!locale)
+		return false
+	return locale.morph(objectID, gloss)
+})
 if (typeof module !== 'undefined')
 	module.exports = {
 		RasPG,
