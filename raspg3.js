@@ -2201,11 +2201,20 @@ class Tangible extends Component {
 	}
 	/** @return {(null | GameObject)[]} */
 	get locationArray() {
-		const location = this.location
-		if (location instanceof GameObject && location.hasComponent(Tangible))
-			return [location, ...location.component(Tangible).locationArray]
-		else
-			return [location]
+		let current = this.location
+		const path = [current]
+		const visited = new Set()
+
+		while (current instanceof GameObject && current.hasComponent(Tangible)) {
+			const location = current.component(Tangible).location
+			path.push(location)
+			if (visited.has(location))
+				break
+			visited.add(location)
+			current = location
+		}
+
+		return path
 	}
 	get locationDeepest() {
 		return this.locationArray.at(-1)
