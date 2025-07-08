@@ -559,7 +559,7 @@ class RasPG {
 			const [_, prefix, search] = query.match(/(\w+:)(.*)/)
 			switch(prefix) {
 				case 'instance:':
-					return collection.find(e => e.match(new RegExp(search + '_inst\d+$'))) || query
+					return collection.find(e => e.match(new RegExp(search + '__i\d+$'))) || query
 				case 'template:':
 					for (const id of collection)
 						if (GameObject.find(id)?.isTagged('TEMPLATE:'+search))
@@ -1219,10 +1219,10 @@ class TemplateModule {
 		RasPG.runtime.state.inner.push('instantiating')
 
 		const registered = this.#all.get(name)
-		registered.template.id += '_inst' + registered.instances++
-		const instance = registered.proto.deserializer(registered.template)
+		registered.serialized.id += '__i' + registered.instances++
+		const instance = registered.constructor.deserializer(registered.serialized)
 		instance.tag('TEMPLATE:'+name)
-		registered.template.id = registered.template.id.replace(/_inst\d+$/, '')
+		registered.serialized.id = registered.serialized.id.replace(/__i\d+$/, '')
 
 		RasPG.runtime.state.inner.pop()
 
@@ -1840,7 +1840,7 @@ class Stringful extends Component {
 
 
 		const parentID = split?.parentID
-			|| this.parent?.id?.replace?.(/_inst\d+$/, '') || 'unknown'
+			|| this.parent?.id?.replace?.(/__i\d+$/, '') || 'unknown'
 		const givenLocale = split?.givenLocale
 			|| RasPG.config.availableLocales.includes(key.slice(0, key.indexOf('.')))? key.slice(0, key.indexOf('.')) : false
 		const rawKey = split?.rawKey
@@ -1907,7 +1907,7 @@ class Stringful extends Component {
 
 		RasPG.dev.validate.type('Stringful.instance.get.key', key, 'string')
 
-		const parentID = this.parent?.id?.replace?.(/_inst\d+$/, '') || 'unknown'
+		const parentID = this.parent?.id?.replace?.(/__i\d+$/, '') || 'unknown'
 		const givenLocale = RasPG.config.availableLocales.includes(key.slice(0, key.indexOf('.')))? key.slice(0, key.indexOf('.')) : false
 		const rawKey = givenLocale? key.slice(key.indexOf('.') + 1) : key
 
