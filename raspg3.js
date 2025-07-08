@@ -2188,27 +2188,24 @@ class Tangible extends Component {
 		)
 		return instance
 	}
+	/** @type {string} */
 	#location
 
+	/** @return {string | null | GameObject} */
 	get location() {
 		if (RasPG.runtime.state.inner.get() === 'serializing')
 			return this.#location
-		if (this.#location === undefined)
-			return undefined
+		if (this.#location === null)
+			return null
 		return GameObject.resolve(this.#location)
 	}
+	/** @return {(null | GameObject)[]} */
 	get locationArray() {
-		let location = this.location
-		const array = [location]
-		while (location instanceof GameObject) {
-			if (location.hasComponent(Tangible)) {
-				location = location._location.location
-				array.push(location)
-			}
-			else
-				break
-		}
-		return array
+		const location = this.location
+		if (location instanceof GameObject && location.hasComponent(Tangible))
+			return [location, ...location.component(Tangible).locationArray]
+		else
+			return [location]
 	}
 	get locationDeepest() {
 		return this.locationArray.at(-1)
@@ -2248,7 +2245,7 @@ class Tangible extends Component {
 		HookModule.run('after:Tangible.instance.moveTo', arguments, this)
 		return true
 	}
-	/** Removes the object from its current location (if any) and clears its lcation to `undefined`.
+	/** Removes the object from its current location (if any) and clears its location to `null`.
 	 * @param {boolean} passOn INTERNAL USE: if anything but `false`, will call the current (if existent) container's `remove` method.
 	 */
 	removeFromWorld(passOn) {
@@ -2257,13 +2254,13 @@ class Tangible extends Component {
 		const previous = this.#location
 		if (passOn !== false)
 			this.location._container.remove(this.parent, false)
-		this.#location = undefined
+		this.#location = null
 
 		EventModule.emitPropertyEvents({
 			object: this.parent,
 			property: 'location',
 			previous,
-			current: undefined
+			current: null
 		}, 'tangible.')
 		EventModule.emit(`tangible.moved`, {
 			object: this.parent,
