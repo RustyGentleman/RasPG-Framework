@@ -1723,6 +1723,111 @@ class Extension {
 	}
 } RasPG.registerClass('Extension', Extension)
 
+//# Subclasses
+class Area extends GameObject {
+	static defaultComponents = ['Stringful', 'Containing']
+	static serializer = function(object) {
+		return Object.assign(GameObject.serializer(object), {description: object.description})
+	}
+	contents = this._container?.contents
+	contents = this._container?.contentsNested
+	filter = this._container?.filter
+
+	/**
+	 * @param {string} id Convention: all lowercase, no spaces.
+	 * @param {{name?: string | () => string, description: string | () => string, tags?: string[], components?: Array<typeof Component | Component | string>, register?: boolean}} [options]
+	 * @param [options.name] Optional, defaults to ID. Convention: no article, singular, all lowercase (unless proper name).
+	 * @param options.description Convention: full sentence(s), first letter uppercase, full stop at the end.
+	 * @param [options.tags] Optional. Tags to be added
+	 * @param [options.components] Optional. Components to be added
+	 * @param [options.register] Optional. If strictly `false`, instance will not be registered to GameObject.#all.
+	 */
+	constructor(id, options) {
+		HookModule.run('before:Area.constructor', arguments, Area)
+
+		if (options)
+			if ('components' in options)
+				options.components.push(...Area.defaultComponents)
+			else
+				options.components = Area.defaultComponents
+
+		super('A__'+id, options?? {components: Area.defaultComponents})
+
+		this._strings?.define({
+			name: options.name?? id,
+			description: options.description
+		})
+
+		this.contents = this._container?.contents
+		this.filter = this._container?.filter
+
+		HookModule.run('after:Area.constructor', arguments, Area)
+	}
+
+	get id() {
+		return super.id.slice(3)
+	}
+	get name() {
+		return this._strings.get('name')
+	}
+	get description() {
+		return this._strings.get('description')
+	}
+
+	/** Returns the area with the given ID (strict), if found, or `null`, if not found.
+	 * @param {string} id Convention: all lowercase, no spaces.
+	 */
+	static find(id) {
+		HookModule.run('Area.find', arguments, this)
+		return super.find('A__'+id)
+	}
+	/** Attempts to resolve an area ID (soft*) to an instance. Optionally checks if it inherits from a given class, and/ir if it contains a given component or set of components.
+	 *
+	 * \*: If `id` is a string with the 'instantiate:' prefix, will instantiate the given template and return it, if found.
+	 *
+	 * Returns a GameObject instance if either the ID is resolved or the first parameter is already an instance, and the requested checks are passed. Returns `null` if the ID does not resolve to an area. Returns `false` if any checks fail.
+	 * @param {string | GameObject} id
+	 * @param {{proto: Function, component: Component, components: Iterable<Component>, operation: string}} options If both `components` and `component` are passed in `options`, only the array is checked. `operation` is the name of the method calling this method, and wwill be passed to warning messages for information.
+	 */
+	static resolve(id, options) {
+		HookModule.run('Area.resolve', arguments, this)
+		if (!('proto' in options))
+			options.proto = this
+		return super.resolve('A__'+id, options)
+	}
+	/** Proxy for the Area's Containing component method. Adds an object to the container. Returns the component instance back for further operations, unless the object couldn't be found (returns null) or isn't Tangible (returns false).
+	 * @param {GameObject | string} object
+	 * @param {{ignoreFilter?: boolean, passOn?: boolean}} options
+	 * @param options.ignoreFilter If set to `true`, object will be added to container regardless of a present filter.
+	 * @param options.passOn INTERNAL USE: if anything but `false`, will call the current (if existent) container's `remove` method and new container's `add` method.
+	 */
+	add(object, options) {
+		return this._container.add(object, options)
+	}
+	/** Proxy for the Area's Containing component method. Removes an object from the container. Returns the component instance back for further operations.
+	 * @param {GameObject | string} object
+	 * @param {boolean} passOn INTERNAL USE: if anything but `false`, will call the current (if existent) container's `remove` method and new container's `add` method.
+	 */
+	remove(object, passOn) {
+		return this._container.remove(object, passOn)
+	}
+	/** Proxy for the Area's Containing component method. Sets a filter function that dictates what kinds of GameObjects the container allows. Returns the component instance back for further operations.
+	 * @param {(GameObject) => boolean} predicate
+	 */
+	setFilter(predicate) {
+		return this._container.setFilter(predicate)
+	}
+	emptyInto(container) {
+		return this._container.emptyInto(container)
+	}
+	/** Proxy for the Area's Containing component method. Returns whether the given object is contained within the container.
+	 * @param {GameObject | string} object
+	 */
+	has(object) {
+		return this._container.has(object)
+	}
+} RasPG.registerClass('Area', Area)
+
 //# Components
 class Stateful extends Component {
 	static reference = '_states'
@@ -2421,6 +2526,23 @@ class Containing extends Component {
 				.filter(e => e instanceof GameObject)
 		)
 	}
+	get contentsNested() {
+		const contents = new Set()
+		let toSearch = [this.parent]
+
+		while (toSearch.length != 0) {
+			const newSearches = []
+			for (const object of toSearch)
+				for (const inner of object._container.contents) {
+					contents.add(inner)
+					if (inner.hasComponent(Containing))
+						newSearches.push(inner)
+				}
+			toSearch = newSearches
+		}
+
+		return contents
+	}
 	get filter() {
 		return this.#filter
 	}
@@ -2504,8 +2626,39 @@ class Containing extends Component {
 		HookModule.run('after:Containing.instance.setFilter', arguments, this)
 		return this
 	}
-	emptyInto(container) {}
-	empty() {}
+	/** Attempts to move all items from current container to the given one. Returns `true` if successful, and `false`, if at least one object could not be moved.
+	 * @param {string | GameObject | Containing} container
+	 */
+	emptyInto(container) {
+		HookModule.run('before:Containing.instance.emptyInto', arguments, this)
+
+		RasPG.dev.validate.type('Containing.instance.emptyInto.container', container, 'string | GameObject | Containing')
+		let actualObject
+		let actualContainer
+		if (typeof container === 'string') {
+			actualObject = GameObject.resolve(container, {component: Containing, operation: 'Containing.instance.emptyInto'})
+			if (!actualObject)
+				return actualContainer
+		}
+		else if (container instanceof GameObject)
+			actualObject = container
+		if (container instanceof GameObject)
+			if (container.hasComponent(Containing))
+				actualContainer = container.component(Containing)
+			else {
+				return RasPG.dev.logs.missingRequiredComponentForOperation(container.id, 'Containing', 'Containing.instance.emptyInto')
+			}
+		else if (container instanceof Containing)
+			actualContainer = container
+
+		let allSuccessful = true
+		for (const item of new Set(this.contents))
+			if (!actualContainer.add(item))
+				allSuccessful = false
+
+		HookModule.run('after:Containing.instance.emptyInto', arguments, this)
+		return allSuccessful
+	}
 	/** Returns whether the given object is contained within the container.
 	 * @param {GameObject | string} object
 	 */
