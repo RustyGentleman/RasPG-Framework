@@ -157,8 +157,8 @@ class RasPG {
 			 * pop : () => 'initializing'|'running'|'serializing'|'templating'|'instantiating'
 			 * }} */
 			inner: this.utils.constructors.valueStack('initializing', {
-					onPush: () => {EventModule.emit('state.inner.changed'); EventModule.emit('state.inner.pushed')},
-					onPop: () => {EventModule.emit('state.inner.changed'); EventModule.emit('state.inner.popped')}
+					onPush: function(){EventModule.emit('state.inner.changed', {object: this, label:'runtime.state.inner'}); EventModule.emit('state.inner.pushed', {object: this, label:'runtime.state.inner'})},
+					onPop: function(){EventModule.emit('state.inner.changed', {object: this, label:'runtime.state.inner'}); EventModule.emit('state.inner.popped', {object: this, label:'runtime.state.inner'})}
 				}),
 		},
 		turn: {
@@ -391,7 +391,7 @@ class RasPG {
 			},
 		},
 		validate: {
-			/** Throws an exception if the value is mistyped. Supports all `typeof` returns, string literals (with ' or "), arrays of type (`type[]` or `Array<type>`) with ors (`Array<type1 | type2>`), RegExp instance, GameObject instance.
+			/** Throws an exception if the value is mistyped. Supports all `typeof` returns, string literals (with ' or "), arrays of type (`type[]` or `Array<type>`) with ors (`Array<type1 | type2>`), RegExp instances, and instances and subclasses of any registered classes and components, as well as themselves.
 			 * @param {string} path
 			 * @param {any} value
 			 * @param {string | [string, string]} typeSpec
@@ -422,9 +422,18 @@ class RasPG {
 					switch(typeStr) {
 						case 'RegExp':
 							return val instanceof RegExp
-						case 'GameObject':
-							return val instanceof GameObject
 						default:
+							if (typeStr.match(/^typeof\s+[A-Z]/)) {
+								const component = RasPG.runtime.components.get(typeStr)
+								if (component)
+									return component.isPrototypeOf(val) || val === component
+								const clss = RasPG.runtime.classes.get(typeStr)
+								if (clss)
+									return clss.isPrototypeOf(val) || val === clss
+							}
+							if (typeStr.match(/^[A-Z]/))
+								return val instanceof RasPG.runtime.components.get(typeStr)
+									|| val instanceof RasPG.runtime.classes.get(typeStr)
 							if (typeStr.match(/(['"])([^'"\n]+)\1/))
 								return (typeof val === 'string' && val === typeStr.match(/(['"])([^'"\n]+)\1/)[2])
 							return typeof val === typeStr
@@ -569,6 +578,10 @@ class RasPG {
 		}
 	}
 
+	static get currentLocaleAdapter() {
+		return this.runtime.localizationAdapters.get(this.config.locale)
+	}
+
 	/** Registers a module to the core framework.
 	 * @param {string} name
 	 * @param {Function} module
@@ -706,7 +719,7 @@ class EventModule {
 		HookModule.run('before:EventModule.emit', arguments, this)
 
 		if (this.logInfo) {
-			console.groupCollapsed(`[\x1b[36;1mEvent\x1b[0m - \x1b[33m${event}\x1b[0m on \x1b[93m${data.object? data.object instanceof GameObject? 'ID:'+data.object.id : data.object.name : 'undefined'}\x1b[0m]`)
+			console.groupCollapsed(`[\x1b[36;1mEvent\x1b[0m - \x1b[33m${event}\x1b[0m on \x1b[93m${data.object? data.object instanceof GameObject? 'ID:'+data.object.id : data.label?? data.object.name : 'unlabelled'}\x1b[0m]`)
 			console.info(data)
 			console.groupEnd()
 		}
@@ -1246,7 +1259,7 @@ class TemplateModule {
 			throw RasPG.dev.exceptions.GeneralIDConflict('Template.#all', name)
 
 		RasPG.runtime.state.inner.push('serializing')
-		const serialized = GameObject.serializer(object)
+		const serialized = object.constructor.serializer(object)
 		RasPG.runtime.state.inner.pop()
 
 		TemplateModule.#all.set(name, { name, serialized, constructor: object.constructor, instances: 0 })
@@ -1255,7 +1268,7 @@ class TemplateModule {
 	}
 } RasPG.registerModule('Template', TemplateModule)
 
-//# Classes
+//# Main classes
 /**
  * @class GameObject
  * @classdesc Game object.
@@ -1282,7 +1295,8 @@ class GameObject {
 		return data
 	}
 	static deserializer = function(data) {
-		const object = new GameObject(data.id, { tags: data.tags })
+		const {components, ...rest} = data
+		const object = new this(data.id, Object.assign(rest, {components: Object.keys(components)}))
 		for (const [name, cData] of Object.entries(data.components)) {
 			const component = RasPG.runtime.components.get(name)
 			if (!component)
@@ -1290,6 +1304,7 @@ class GameObject {
 			const instance = component.deserializer(cData)
 			object.addComponent(instance)
 		}
+		return object
 	}
 	#id
 	#tags = new Set()
@@ -1405,6 +1420,9 @@ class GameObject {
 			else
 				instance = new actualComponent()
 		}
+		if (RasPG.runtime.state.inner.get() === 'instantiating')
+			this._components.delete(instance.constructor.name, instance)
+		}
 		if (this.hasComponent(instance.constructor))
 			return false
 
@@ -1420,6 +1438,7 @@ class GameObject {
 			this[instance.constructor.reference] = instance
 
 		HookModule.run('after:GameObject.instance.addComponent', arguments, this)
+		return true
 	}
 	/** Adds the given components to the object. Returns `false`, if all components were already present (no-op), and `true`, otherwise.
 	 * @param {...Component | ...string} args Either the component subclass itself, an instance of the wanted component subclass, or its name.
@@ -1509,6 +1528,7 @@ class Component {
 	static requires = []
 	static serializer
 	static deserializer
+	/** @type {GameObject} */
 	parent
 
 	/** Attempts to resolve a string to a Component subclass. Passes it back if first parameter is already one.
@@ -1519,8 +1539,9 @@ class Component {
 
 		if (typeof component === 'function' && this.isPrototypeOf(component))
 			return component
-		if (typeof component === 'string' && this.isPrototypeOf(RasPG.runtime.components.get(component)))
-			return RasPG.runtime.components.get(component)
+		const registered = RasPG.runtime.components.get(component)
+		if (typeof component === 'string' && this.isPrototypeOf(registered))
+			return registered
 		if (typeof component === 'object' && (component instanceof this))
 			return component.constructor
 
@@ -1583,10 +1604,18 @@ class LocalizationAdapter {
 			this.config = options.config
 	}
 
+	/**
+	 * @param {string} objectID
+	 * @param {string} gloss
+	 */
 	morph(objectID, gloss) {
 		const actualObject = GameObject.resolve(objectID, { component: Describable, operation: 'LocalizationAdapter.instance.morph' })
 		if (!actualObject)
-			return actualObject
+			return false
+		RasPG.dev.validate.types('LocalizationAdapter.instance.morph', {
+			objectID: [objectID, 'string'],
+			gloss: [gloss, 'string']
+		})
 		RasPG.dev.validate.linguisticMetadata(actualObject.id, actualObject._description.metadata, this.metadataRequired, this.metadataOptional)
 
 		const parts = gloss
@@ -1626,7 +1655,7 @@ class LocalizationAdapter {
 			return found[1]
 		return false
 	}
-}
+} RasPG.registerClass('LocalizationAdapter', LocalizationAdapter)
 class Extension {
 	name
 	description
@@ -1692,7 +1721,7 @@ class Extension {
 			RasPG.registerComponent(name, component)
 		RasPG.runtime.extensions.set(this.name, this)
 	}
-}
+} RasPG.registerClass('Extension', Extension)
 
 //# Components
 class Stateful extends Component {
@@ -1984,7 +2013,7 @@ class Describable extends Component {
 	}
 
 	/** Sets the name and description for an object. Both can be string or string-returning functions. Returns the component instance back for further operations.
-	 * @param {{canonicalName: string | () => string, nouns: string[], adjectives: string[], description: string | () => string, metadata?: {objectType: string | string[], overrides?: {[baseToken: string]: [string[], string | string[]][]}, [feature: string]: any}}} options
+	 * @param {{canonicalName: string | () => string, nouns: string[], adjectives: string[], description: string | () => string, metadata?: {objectType: string | string[], overrides?: {[languageCode: string]: {[baseToken: string]: [string[], string | string[]][]}}, [feature: string]: any}}} options
 	 * @param options.canonicalName Convention: no article, singular, all lowercase (unless proper name).
 	 * @param options.nouns Convention: no article, singular, all lowercase, first in array should reflect canonical name.
 	 * @param options.adjectives Convention: no article, singular, all lowercase, first in array should reflect canonical name.
@@ -2000,8 +2029,7 @@ class Describable extends Component {
 			adjectives: 'string[]',
 			description: ['string | function', 'string | () => string']
 		}, {
-			withArticle: ['string | function', 'string | () => string'],
-			plural: ['string | function', 'string | () => string'],
+			metadata: 'object',
 		})
 
 		this.parent._strings.set('desc.name', options.canonicalName)
@@ -2014,6 +2042,13 @@ class Describable extends Component {
 		})
 		HookModule.run('after:Describable.instance.describe', arguments, this)
 		return this
+	}
+	/** Passes the object's ID and the given gloss to the LocalizationAdapter registered under the current locale's language code, and returns the result.
+	 * @param {string} gloss
+	 */
+	morph(gloss) {
+		HookModule.run('Describable.instance.morph', arguments, this)
+		return RasPG.currentLocaleAdapter?.morph(this.parent.id, gloss)
 	}
 }  RasPG.registerComponent('Describable', Describable)
 class Perceptible extends Component {
@@ -2355,7 +2390,6 @@ class Countable extends Component {
 }  RasPG.registerComponent('Countable', Countable)
 class Containing extends Component {
 	static reference = '_container'
-	static requires = [Tangible]
 	static serializer = function(instance) {
 		const data = {contents: Array.from(instance.contents)}
 		if (RasPG.config.serializeFunctions)
@@ -2373,6 +2407,7 @@ class Containing extends Component {
 			)
 		return instance
 	}
+	/** @type {Set<string>} */
 	#contents = new Set()
 	/** @type {(GameObject) => boolean} */
 	#filter
@@ -2383,13 +2418,14 @@ class Containing extends Component {
 		return new Set(
 			Array.from(this.#contents)
 				.map(e => GameObject.resolve(e, { operation: 'Containing.instance.get.contents' }))
+				.filter(e => e instanceof GameObject)
 		)
 	}
 	get filter() {
 		return this.#filter
 	}
 
-	/** Adds an object to the container. Returns the component instance back for further operations.
+	/** Adds an object to the container. Returns the component instance back for further operations, unless the object couldn't be found (returns null) or isn't Tangible (returns false).
 	 * @param {GameObject | string} object
 	 * @param {{ignoreFilter?: boolean, passOn?: boolean}} options
 	 * @param options.ignoreFilter If set to `true`, object will be added to container regardless of a present filter.
