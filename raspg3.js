@@ -1421,8 +1421,7 @@ class GameObject {
 				instance = new actualComponent()
 		}
 		if (RasPG.runtime.state.inner.get() === 'instantiating')
-			this._components.delete(instance.constructor.name, instance)
-		}
+			this._components.delete(instance.constructor.name)
 		if (this.hasComponent(instance.constructor))
 			return false
 

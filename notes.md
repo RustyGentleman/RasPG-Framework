@@ -40,6 +40,7 @@
 - declarative mode for easier GameObject declarations?
 - delta serialization on templated objects
 - implement context object push/pop on relevant operations
+- make output string composable and reorderable
 ## Core
 - persistence/save module
 ### GameObject
@@ -55,6 +56,8 @@
 - agents* -> actors*?
 ### Agentive
 - intent, heuristic
+### Stateful
+- rename (not state-related)
 ### Context module
 - allow getting global strings
 ### SubText module
@@ -66,8 +69,7 @@
 - stat param: resolve StatType/Stat instance to name?
 
 # Doing
-- Tangible nested container chain checking
-- `morph:id:gloss` substitution pattern
-- SubText complex substitution patterns
-- Describable
-- Localization adapter
+- Morpher results into final clause
+- Action class
+- Region class
+- Area class
