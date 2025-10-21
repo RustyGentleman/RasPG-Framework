@@ -147,7 +147,22 @@ class RasPG {
 				const [_, major, minor, patch, branch] = matches
 				return {major: +major, minor: +minor, patch: +patch, branch: branch || undefined}
 			}
-		}
+		},
+		/**
+		 * @param {string[]} array
+		 * @param {string} flags
+		 */
+		stringArrayToRegex: function(array, flags) {
+			return new RegExp('(?:'+array.join('|')+')', flags?? 'i')
+		},
+		/**
+		 * @param {RegExp[]} exps
+		 * @param {string} separator
+		 * @param {string} flags
+		 */
+		combineRegExp: function(exps, separator, flags) {
+			return new RegExp(exps.map(e => e.toString().slice(1,-1)).join(separator?? '.*?'), flags?? 'i')
+		},
 	}
 	static runtime = {
 		state: {
@@ -1266,11 +1281,70 @@ class TemplateModule {
 
 		HookModule.run('after:Template.register', arguments, this)
 	}
-} RasPG.registerModule('Template', TemplateModule)
+} RasPG.registerModule('TemplateModule', TemplateModule)
+class ParserModule {
+	/** @type {{ input: string, result: { command: string | RegExp, objects: GameObject[] } }[]}  */
+	static inputHistory = []
+	/** @type {string}  */
+	static currentInput
 
-//# Main classes
+	/**
+	 * @param {string} input Input to be parsed.
+	 * @param {(RegExp | string)[]} commands Possible/available commands.
+	 * @param {GameObject[]} objects Interactable/available objects.
+	 * @param {'AN' | 'NA'} nounAdjectiveOrder The order in which adjective-noun groups should appear in the current locale. Defaults to adjective-noun (`'AN'`)
+	 */
+	static parse(input, commands, objects, nounAdjectiveOrder) {
+		HookModule.run('before:ParserModule.parse', arguments, this)
+
+		RasPG.dev.validate.types('ParserModule.parse', {
+			input: [input, 'string'],
+			commands: [commands, '(string | RegExp)[]'],
+			objects: [objects, 'GameObject[]'],
+			nounAdjectiveOrder: [nounAdjectiveOrder, `'AN' | 'NA' | undefined`],
+		})
+
+		//* Clean and trim
+		input = input.toLowerCase().trim()
+		this.currentInput = input
+
+		/** @type {{ command: string | RegExp, objects: GameObject[] }} */
+		const result = { command: undefined, objects: [] }
+
+		//* Try to match command
+		for (const command of commands)
+			if (typeof command === 'string' && input.includes(command))
+				result.command = command
+			else if (command instanceof RegExp && input.match())
+				result.command = command
+
+		//* Try to match objects
+		for (const [object, desc] of objects.map(e => [e, e.component(Describable)])) {
+			if (!desc)
+				continue
+			const match = input.match(
+				nounAdjectiveOrder === 'NA'?
+					RasPG.utils.combineRegExp([
+						RasPG.utils.stringArrayToRegex(desc.nouns),
+						RasPG.utils.stringArrayToRegex(desc.adjectives)
+					], '\s+', 'i')
+					: RasPG.utils.combineRegExp([
+						RasPG.utils.stringArrayToRegex(desc.adjectives),
+						RasPG.utils.stringArrayToRegex(desc.nouns)
+					], '\s+', 'i')
+			)
+			if (match)
+				result.objects.push({ object, match })
+		}
+
+		HookModule.run('after:ParserModule.parse', arguments, this)
+		this.inputHistory.push({ input, result })
+		return result
+	}
+} RasPG.registerModule('ParserModule', ParserModule)
+
+//# Classes
 /**
- * @class GameObject
  * @classdesc Game object.
  *
  * @prop {Stateful} _states
