@@ -1642,6 +1642,58 @@ class Component {
 		return this.constructor.serializer(this)
 	}
 } RasPG.registerClass('Component', Component)
+class Action {
+	/** @type {Map<string, Action>} */
+	static #all = new Map()
+	/** @type {string} */
+	#id
+	/** @type {(...args: any[]) => boolean} */
+	#fn
+
+	static get all() {
+		return new Map(this.#all)
+	}
+
+	/**
+	 * @param {string} id Convention: all lowercase, no spaces.
+	 * @param {(...args: any[]) => boolean} fn Function that performs the action. Must return `true` if performed correctly, and `false`, if it cannot be performed, in which case it should make no changes in the game state.
+	 */
+	static register(id, fn) {
+		HookModule.run('before:Action.constructor', arguments, this)
+
+		RasPG.dev.validate.type('Action.constructor.id', id, 'string')
+		RasPG.dev.validate.types('Action.register', {
+			id: [id, 'string'],
+			fn: [fn, 'function'],
+		})
+		if (this.#all.has(id))
+			throw RasPG.dev.exceptions.GeneralIDConflict('Action.constructor', id)
+
+		const action = new Action()
+		action.#id = id
+		action.#fn = fn
+
+		this.#all.set(id, action)
+
+		HookModule.run('after:Action.constructor', arguments, this)
+		return this
+	}
+	/** Performs the action with the given ID (strict), if found. Returns `true` if found and performed, `false`, if it cannot be performed, or `null`, if not found.
+	 * @param {string} id Convention: all lowercase, no spaces.
+	 * @param {any[]} args
+	 */
+	static perform(id, args) {
+		HookModule.run('before:Action.find', arguments, this)
+
+		const action = this.#all.get(id)
+		if (!action) {
+			RasPG.dev.logs.elementNotRegisteredInCollection(id, 'Action.#all')
+			return null
+		}
+
+		return action.#fn(args)
+	}
+}
 class LocalizationAdapter {
 	author
 	version
@@ -3152,23 +3204,3 @@ SubTextModule.registerComplexSubstitution('morph', [/[\s\S]+/, /[a-zA-Z0-9.-]+/]
 		return false
 	return locale.morph(objectID, gloss)
 })
-if (typeof module !== 'undefined')
-	module.exports = {
-		RasPG,
-		GameObject,
-		Component,
-
-		EventModule,
-		HookModule,
-		ContextModule,
-		SubTextModule,
-
-		Stateful,
-		Stringful,
-		Perceptible,
-		Tangible,
-		Countable,
-		Containing,
-		Actionable,
-		Agentive,
-	}
