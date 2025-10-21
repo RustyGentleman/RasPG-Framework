@@ -1693,7 +1693,7 @@ class Action {
 
 		return action.#fn(args)
 	}
-}
+} RasPG.registerClass('Action', Action)
 class LocalizationAdapter {
 	author
 	version
