@@ -1659,15 +1659,14 @@ class Action {
 	 * @param {(...args: any[]) => boolean} fn Function that performs the action. Must return `true` if performed correctly, and `false`, if it cannot be performed, in which case it should make no changes in the game state.
 	 */
 	static register(id, fn) {
-		HookModule.run('before:Action.constructor', arguments, this)
+		HookModule.run('before:Action.register', arguments, this)
 
-		RasPG.dev.validate.type('Action.constructor.id', id, 'string')
 		RasPG.dev.validate.types('Action.register', {
 			id: [id, 'string'],
 			fn: [fn, 'function'],
 		})
 		if (this.#all.has(id))
-			throw RasPG.dev.exceptions.GeneralIDConflict('Action.constructor', id)
+			throw RasPG.dev.exceptions.GeneralIDConflict('Action.#all', id)
 
 		const action = new Action()
 		action.#id = id
@@ -1675,7 +1674,7 @@ class Action {
 
 		this.#all.set(id, action)
 
-		HookModule.run('after:Action.constructor', arguments, this)
+		HookModule.run('after:Action.register', arguments, this)
 		return this
 	}
 	/** Performs the action with the given ID (strict), if found. Returns `true` if found and performed, `false`, if it cannot be performed, or `null`, if not found.
@@ -1683,7 +1682,7 @@ class Action {
 	 * @param {any[]} args
 	 */
 	static perform(id, args) {
-		HookModule.run('before:Action.find', arguments, this)
+		HookModule.run('before:Action.perform', arguments, this)
 
 		const action = this.#all.get(id)
 		if (!action) {
@@ -1691,7 +1690,10 @@ class Action {
 			return null
 		}
 
-		return action.#fn(args)
+		const ret = action.#fn(args)
+
+		HookModule.run('after:Action.perform', arguments, this)
+		return ret
 	}
 } RasPG.registerClass('Action', Action)
 class LocalizationAdapter {
