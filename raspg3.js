@@ -1112,39 +1112,53 @@ class SubTextModule {
 
 		let previous
 		while(true) {
+			//* Break if all substitutions are exhausted
 			if (!string.match(/%[^%]+?%/) || string == previous)
 				break
 			previous = string
+
+			//* Find all substitution patterns and iterate over them
 			const matches = Array.from(string.matchAll(/%([^%]+?)%/g))
 			for (const [inplace, identifier] of matches) {
+				//* Find substitution in the registry and use it if present
 				const substitution = this.#substitutions.get(identifier)
 				if (substitution) {
 					const result = substitution()
 					string = string.replace(inplace, result || '{MISSING}')
 					if (!result)
+						//* Collapse double space
 						string = string.replace(/ \{MISSING\}|\{MISSING\} /, '')
 					continue
 				}
 				RasPG.dev.logs.elementNotRegisteredInCollection(identifier, 'SubTextModule.#substitutions')
+
+				//* If not a registered substitution, check if contextLabel.stringKey
 				const parts = identifier.match(/^([^.]+)\.(.+)$/)
 				if (!parts) {
+					//* Collapse double space
 					string = string
 						.replace(inplace, '{MISSING}')
 						.replace(/ \{MISSING\}|\{MISSING\} /, '')
 					continue
 				}
+
+				//* If it is, look for context object
 				const [, contextLabel, stringKey] = parts
 				const contextObject = ContextModule.get(contextLabel)
 				if (!contextObject || !(contextObject instanceof GameObject) || !contextObject.hasComponent(Stringful)) {
+					//* Collapse double space
 					string = string
 						.replace(inplace, '{MISSING}')
 						.replace(/ \{MISSING\}|\{MISSING\} /, '')
 					continue
 				}
-				const stringValue = contextObject._strings.get(stringKey)
+
+				//* If found, try to get string
+				const stringValue = contextObject._strings?.get(stringKey)
 				if (stringValue)
 					string = string.replace(inplace, stringValue)
 				else {
+					//* Collapse double space
 					string = string
 						.replace(inplace, '{MISSING}')
 						.replace(/ \{MISSING\}|\{MISSING\} /, '')
@@ -1167,12 +1181,13 @@ class SubTextModule {
 
 		let previous
 		while(true) {
+			//* Break if all substitutions are exhausted
 			if (!string.match(/%[^%]+?%/) || string == previous)
 				break
 			previous = string
 
+			//* Find all substitution patterns and iterate over them
 			const matches = Array.from(string.matchAll(/%([^%]+?)%/g))
-
 			for (const [inplace, contents] of matches) {
 				const [identifier, ...data] = contents.split(':')
 				if (!this.#complexSubstitutions.has(identifier)) {
@@ -1436,7 +1451,7 @@ class GameObject {
 	 */
 	static find(id) {
 		HookModule.run('GameObject.find', arguments, this)
-		return this.#all.find(e => e.id === id) || null
+		return this.#all.get(id) || null
 	}
 	/** Attempts to resolve an object ID (soft*) to an instance. Optionally checks if it inherits from a given class, and/ir if it contains a given component or set of components.
 	 *
@@ -2178,16 +2193,19 @@ class Stringful extends Component {
 class Describable extends Component {
 	static reference = '_description'
 	static requires = [Stringful]
-	canonicalName
-	nouns
-	adjectives
-	metadata
+	metadata = {}
 
 	get canonicalName() {
-		return this.parent._strings.get('description.name')
+		return this.parent._strings.get('desc.name')
 	}
 	get description() {
-		return this.parent._strings.get('description.description')
+		return this.parent._strings.get('desc.description')
+	}
+	get nouns() {
+		return this.parent._strings.get('desc.nouns').split('|')
+	}
+	get adjectives() {
+		return this.parent._strings.get('desc.adjectives').split('|')
 	}
 
 	/** Sets the name and description for an object. Both can be string or string-returning functions. Returns the component instance back for further operations.
@@ -2196,7 +2214,7 @@ class Describable extends Component {
 	 * @param options.nouns Convention: no article, singular, all lowercase, first in array should reflect canonical name.
 	 * @param options.adjectives Convention: no article, singular, all lowercase, first in array should reflect canonical name.
 	 * @param options.description Convention: full sentence(s), first letter uppercase, full stop at the end.
-	 * @param [options.metadata] Linguistic metadata to be used by LocalizationAdapters. Consult documentation and required/optional metadata on the adapter, if being used.
+	 * @param [options.metadata] Linguistic metadata to be used by LocalizationAdapters. The passed object will be saved under the key corresponding to the currently set locale. Consult documentation and required/optional metadata on the adapter, if being used.
 	 */
 	describe(options) {
 		HookModule.run('before:Describable.instance.describe', arguments, this)
@@ -2212,11 +2230,18 @@ class Describable extends Component {
 
 		this.parent._strings.set('desc.name', options.canonicalName)
 		this.parent._strings.set('desc.description', options.description)
+		this.parent._strings.set('desc.nouns', options.nouns.join('|'))
+		this.parent._strings.set('desc.adjectives', options.adjectives.join('|'))
+		if (options.metadata)
+			this.metadata[RasPG.config.locale] = options.metadata
 
 		EventModule.emit('descriptions.set', {
 			object: this.parent,
 			name: options.canonicalName,
 			description: options.description,
+			nouns: options.nouns,
+			adjectives: options.adjectives,
+			metadata: options.metadata,
 		})
 		HookModule.run('after:Describable.instance.describe', arguments, this)
 		return this
