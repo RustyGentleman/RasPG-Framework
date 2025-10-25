@@ -586,7 +586,7 @@ class RasPG {
 					return collection.find(e => e.match(new RegExp(search + '__i\d+$'))) || query
 				case 'template:':
 					for (const id of collection)
-						if (GameObject.find(id)?.isTagged('TEMPLATE:'+search))
+						if (GameObject.getByID(id)?.isTagged('TEMPLATE:'+search))
 							return id
 			}
 			return query
@@ -1372,9 +1372,11 @@ class ParserModule {
  * @prop {Agentive} _acts
  */
 class GameObject {
+	/** @type {Map<string, GameObject>} */
 	static #all = new Map()
 	static serializer = function(object) {
 		const data = {
+			class: object.constructor.name,
 			id: object.id,
 			tags: Array.from(object.tags),
 			components: {}
@@ -1442,6 +1444,12 @@ class GameObject {
 	get id() {
 		return this.#id
 	}
+	get baseID() {
+		const match = this.#id.match(/^(.+?)__i\d+$/)
+		if (match)
+			return match[1]
+		else return this.#id
+	}
 	get tags() {
 		return new Set(this.#tags)
 	}
@@ -1449,9 +1457,23 @@ class GameObject {
 	/** Returns the object with the given ID (strict), if found, or `null`, if not found.
 	 * @param {string} id Convention: all lowercase, no spaces.
 	 */
-	static find(id) {
-		HookModule.run('GameObject.find', arguments, this)
+	static getByID(id) {
+		HookModule.run('GameObject.getByID', arguments, this)
 		return this.#all.get(id) || null
+	}
+	/** Returns an array of objects that match the given baseID.
+	 * @param {string} baseID Convention: all lowercase, no spaces.
+	 */
+	static getAllByBaseID(baseID) {
+		HookModule.run('GameObject.getAllByBaseID', arguments, this)
+
+		const found = []
+
+		for (const object of this.all.values())
+			if (object.baseID === baseID)
+				found.push(object)
+
+		return found
 	}
 	/** Attempts to resolve an object ID (soft*) to an instance. Optionally checks if it inherits from a given class, and/ir if it contains a given component or set of components.
 	 *
@@ -1472,7 +1494,7 @@ class GameObject {
 			if (id.startsWith('instantiate:'))
 				object = TemplateModule.instantiate(id.slice(12))
 			else
-				object = this.find(id)
+				object = this.getByID(id)
 			if (!object) {
 				RasPG.dev.logs.gameObjectNotFound(id)
 				return null
@@ -1654,7 +1676,7 @@ class Action {
 		return new Map(this.#all)
 	}
 
-	/**
+	/** Registers a new action.
 	 * @param {string} id Convention: all lowercase, no spaces.
 	 * @param {(...args: any[]) => boolean} fn Function that performs the action. Must return `true` if performed correctly, and `false`, if it cannot be performed, in which case it should make no changes in the game state.
 	 */
@@ -1677,6 +1699,32 @@ class Action {
 		HookModule.run('after:Action.register', arguments, this)
 		return this
 	}
+	/** Registers multiple new actions. Consult documentation for `Action.register` for more information.
+	 * @param {{id: string, fn: (...args: any[]) => boolean}[]} array
+	 */
+	static registerMultiple(array) {
+		HookModule.run('before:Action.registerMultiple', arguments, this)
+
+		for( const [id, fn] of array)
+			this.register(id, fn)
+
+		HookModule.run('after:Action.registerMultiple', arguments, this)
+		return this
+	}
+	/** Registers a group of new actions, adding a domain prefix to their ID, for namespacing. Resulting IDs will be 'prefix.id'. Consult documentation for `Action.register` for more information.
+	 * @param {string} prefix Convention: all lowercase, no spaces.
+	 * @param {{id: string, fn: (...args: any[]) => boolean}[]} array
+	 */
+	static registerGroup(prefix, array) {
+		HookModule.run('before:Action.registerGroup', arguments, this)
+
+		RasPG.dev.validate.type('Action.prefix', prefix, 'string')
+
+		for( const [id, fn] of array)
+			this.register(prefix + '.' + id, fn)
+
+		HookModule.run('after:Action.registerGroup', arguments, this)
+	}
 	/** Performs the action with the given ID (strict), if found. Returns `true` if found and performed, `false`, if it cannot be performed, or `null`, if not found.
 	 * @param {string} id Convention: all lowercase, no spaces.
 	 * @param {any[]} args
@@ -1690,7 +1738,7 @@ class Action {
 			return null
 		}
 
-		const ret = action.#fn(args)
+		const ret = action.#fn(...args)
 
 		HookModule.run('after:Action.perform', arguments, this)
 		return ret
