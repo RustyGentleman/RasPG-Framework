@@ -1919,9 +1919,6 @@ class Area extends GameObject {
 	static serializer = function(object) {
 		return Object.assign(GameObject.serializer(object), {description: object.description})
 	}
-	contents = this._container?.contents
-	contents = this._container?.contentsNested
-	filter = this._container?.filter
 
 	/**
 	 * @param {string} id Convention: all lowercase, no spaces.
@@ -1957,19 +1954,31 @@ class Area extends GameObject {
 	get id() {
 		return super.id.slice(3)
 	}
+	get baseID() {
+		return super.baseID.slice(3)
+	}
 	get name() {
 		return this._strings.get('name')
 	}
 	get description() {
 		return this._strings.get('description')
 	}
+	get contents() {
+		return this._container?.contents
+	}
+	get contentsNested() {
+		return this._container?.contentsNested
+	}
+	get filter() {
+		return this._container?.filter
+	}
 
 	/** Returns the area with the given ID (strict), if found, or `null`, if not found.
 	 * @param {string} id Convention: all lowercase, no spaces.
 	 */
-	static find(id) {
-		HookModule.run('Area.find', arguments, this)
-		return super.find('A__'+id)
+	static getByID(id) {
+		HookModule.run('Area.getByID', arguments, this)
+		return super.getByID('A__'+id)
 	}
 	/** Attempts to resolve an area ID (soft*) to an instance. Optionally checks if it inherits from a given class, and/ir if it contains a given component or set of components.
 	 *
