@@ -598,63 +598,66 @@ class RasPG {
 	}
 
 	/** Registers a module to the core framework.
-	 * @param {string} name
 	 * @param {Function} module
+	 * @param {{ as?: string }} options
 	 */
-	static registerModule(name, module) {
-		if (typeof name !== 'string')
-			throw RasPG.dev.exceptions.BrokenTypeEnforcement('RasPG.registerModule.name', 'string')
-		if (typeof module !== 'function')
-			throw RasPG.dev.exceptions.BrokenTypeEnforcement('RasPG.registerModule.module', 'function')
-		if (this.runtime.modules.has(name)) {
-			console.warn(`[RasPG - Core] Attempted to register module with name "${name}" more than once.`
+	static registerModule(module, options) {
+		RasPG.dev.validate.type('RasPG.registerModule.module', module, 'function')
+		RasPG.dev.validate.props('RasPG.registerModule.options', options, false, {
+			as: 'string'
+		})
+
+		if (this.runtime.modules.has(options?.as?? module.name)) {
+			console.warn(`[RasPG - Core] Attempted to register module with name "${options?.as?? module.name}" more than once.`
 				+'\nMaybe attempting to register extension more than once, or modules from different sources share a name')
 			return false
 		}
 
-		this.runtime.modules.set(name, module)
+		this.runtime.modules.set(options?.as?? module.name, module)
 		return this
 	}
 	/** Registers a class to the core framework. Usually for helper classes, helpful for safe string-to-class resolution.
-	 * @param {string} name
 	 * @param {Function} class
+	 * @param {{ as?: string }} options
 	 */
-	static registerClass(name, clss) {
-		if (typeof name !== 'string')
-			throw RasPG.dev.exceptions.BrokenTypeEnforcement('RasPG.registerClass.name', 'string')
-		if (typeof clss !== 'function')
-			throw RasPG.dev.exceptions.BrokenTypeEnforcement('RasPG.registerClass.clss', 'function')
-		if (this.runtime.classes.has(name)) {
-			console.warn(`[RasPG - Core] Attempted to register class with name "${name}" more than once.`
+	static registerClass(clss, options) {
+		RasPG.dev.validate.type('RasPG.registerClass.clss', clss, 'function')
+		RasPG.dev.validate.props('RasPG.registerClass.options', options, false, {
+			as: 'string'
+		})
+
+		if (this.runtime.classes.has(options?.as?? clss.name)) {
+			console.warn(`[RasPG - Core] Attempted to register class with name "${options?.as?? clss.name}" more than once.`
 				+'\nMaybe attempting to register extension more than once, or classes from different sources share a name')
 			return false
 		}
 
-		this.runtime.classes.set(name, clss)
+		this.runtime.classes.set(options?.as?? clss.name, clss)
 		return this
 	}
 	/** Registers a component to the core framework.
-	 * @param {string} name
 	 * @param {Function} component
+	 * @param {{ as?: string }} options
 	 */
-	static registerComponent(name, component) {
-		if (typeof name !== 'string')
-			throw RasPG.dev.exceptions.BrokenTypeEnforcement('RasPG.registerComponent.name', 'string')
-		if (typeof component !== 'function' || !Component.isPrototypeOf(component))
-			throw RasPG.dev.exceptions.BrokenTypeEnforcement('RasPG.registerComponent.component', 'Component')
-		if (this.runtime.components.has(name)) {
-			console.warn(`[RasPG - Core] Attempted to register component with name "${name}" more than once.`
+	static registerComponent(component, options) {
+		RasPG.dev.validate.type('RasPG.registerComponent.component', component, 'function')
+		RasPG.dev.validate.props('RasPG.registerComponent.options', options, false, {
+			as: 'string'
+		})
+
+		if (this.runtime.components.has(options?.as?? component.name)) {
+			console.warn(`[RasPG - Core] Attempted to register component with name "${options?.as?? component.name}" more than once.`
 				+'\nMaybe attempting to register extension more than once, or components from different sources share a name')
 			return false
 		}
 
 		if (component.reference) {
-			const existing = Array.from(RasPG.runtime.components.values()).find(e => e.reference === component.reference)
+			const existing = RasPG.runtime.components.find(e => e.reference === component.reference)
 			if (existing)
 				RasPG.dev.logs.componentReferenceCollision(false, component.reference, existing, component)
 		}
 
-		this.runtime.components.set(name, component)
+		this.runtime.components.set(options?.as?? component.name, component)
 		return this
 	}
 	/** Registers a localization adapter to the core framework.
@@ -830,7 +833,7 @@ class EventModule {
 
 		HookModule.run('after:EventModule.emitPropertyEvents', arguments, this)
 	}
-} RasPG.registerModule('EventModule', EventModule)
+} RasPG.registerModule(EventModule)
 class HookModule {
 	static #hooks = new Map()
 	static logInfo = true
@@ -863,7 +866,7 @@ class HookModule {
 		for (const callback of this.#hooks.get(hook))
 			callback(args, object)
 	}
-} RasPG.registerModule('HookModule', HookModule)
+} RasPG.registerModule(HookModule)
 class ContextModule {
 	static #context = {}
 	static #gatherers = new Map()
@@ -984,7 +987,7 @@ class ContextModule {
 
 		const gatheredContext = {}
 		for (const [name, gatherer] of this.#gatherers.entries())
-			if (options?.skip && options.skip.includes(name))
+			if (options?.skip?.includes(name))
 				continue
 			else if (gatherer.appliesTo(object))
 				Object.assign(gatheredContext, gatherer.callback(object))
@@ -993,7 +996,7 @@ class ContextModule {
 		HookModule.run('after:ContextModule.gatherFrom', arguments, this)
 		return Array.from(Object.keys(gatheredContext))
 	}
-} RasPG.registerModule('ContextModule', ContextModule)
+} RasPG.registerModule(ContextModule)
 class SubTextModule {
 	static #conditionals = new Map()
 	static #substitutions = new Map()
@@ -1240,7 +1243,7 @@ class SubTextModule {
 		HookModule.run('after:SubTextModule.parse', arguments, this)
 		return string
 	}
-} RasPG.registerModule('SubTextModule', SubTextModule)
+} RasPG.registerModule(SubTextModule)
 class TemplateModule {
 	/** @type {{name: string, serialized: {id: string, tags: string[], components: {}}, constructor: function, instances: number}} */
 	static #all = new Map()
@@ -1296,7 +1299,7 @@ class TemplateModule {
 
 		HookModule.run('after:Template.register', arguments, this)
 	}
-} RasPG.registerModule('TemplateModule', TemplateModule)
+} RasPG.registerModule(TemplateModule)
 class ParserModule {
 	/** @type {{ input: string, result: { command: string | RegExp, objects: GameObject[] } }[]}  */
 	static inputHistory = []
@@ -1356,7 +1359,7 @@ class ParserModule {
 		this.inputHistory.push({ input, result })
 		return result
 	}
-} RasPG.registerModule('ParserModule', ParserModule)
+} RasPG.registerModule(ParserModule)
 
 //# Classes
 /**
@@ -1632,7 +1635,7 @@ class GameObject {
 	serialize() {
 		return this.constructor.serializer(this)
 	}
-} RasPG.registerClass('GameObject', GameObject)
+} RasPG.registerClass(GameObject)
 class Component {
 	static reference
 	static requires = []
@@ -1663,7 +1666,7 @@ class Component {
 			return RasPG.dev.logs.componentMissingSerialization(this.constructor.name)
 		return this.constructor.serializer(this)
 	}
-} RasPG.registerClass('Component', Component)
+} RasPG.registerClass(Component)
 class Action {
 	/** @type {Map<string, Action>} */
 	static #all = new Map()
@@ -1743,7 +1746,7 @@ class Action {
 		HookModule.run('after:Action.perform', arguments, this)
 		return ret
 	}
-} RasPG.registerClass('Action', Action)
+} RasPG.registerClass(Action)
 class LocalizationAdapter {
 	author
 	version
@@ -1845,14 +1848,14 @@ class LocalizationAdapter {
 			return found[1]
 		return false
 	}
-} RasPG.registerClass('LocalizationAdapter', LocalizationAdapter)
+} RasPG.registerClass(LocalizationAdapter)
 class Extension {
 	name
 	description
 	author
 	version
-	repository = false
-	minimumCoreVersion = false
+	repository
+	minimumCoreVersion
 	modules = new Map()
 	classes = new Map()
 	components = new Map()
@@ -1881,21 +1884,34 @@ class Extension {
 		this.description = metadata.description
 		this.author = metadata.author
 		this.version = metadata.version
-		this.minimumCoreVersion = metadata.minimumCoreVersion?? false
+		this.minimumCoreVersion = metadata.minimumCoreVersion
 		this.repository = metadata.repository?? false
 	}
-	addClass(name, clss) {
-		this.classes.set(name, clss)
+	/** Adds a new clss to the extension
+	 * @param {Function} clss
+	 * @param {string} as
+	 */
+	addClass(clss, as) {
+		this.classes.set(as?? clss.name, clss)
 		return this
 	}
-	addModule(name, module) {
-		this.modules.set(name, module)
+	/** Adds a new module to the extension
+	 * @param {Function} module
+	 * @param {string} as
+	 */
+	addModule(module, as) {
+		this.modules.set(as?? module.name, module)
 		return this
 	}
-	addComponent(name, component) {
-		this.components.set(name, component)
+	/** Adds a new component to the extension
+	 * @param {Function} component
+	 * @param {string} as
+	 */
+	addComponent(component, as) {
+		this.components.set(as?? component.name, component)
 		return this
 	}
+	/** Registers the extension and its classes, modules and components into the framework. Call at the end of your extension file. */
 	register() {
 		if (this.runtime.extensions.has(this.name)) {
 			console.warn(`[RasPG - Core] Attempted to register extension with name "${this.name}" more than once.`
@@ -1903,15 +1919,15 @@ class Extension {
 			return false
 		}
 
-		for (const [name, module] of this.modules.entries())
-			RasPG.registerModule(name, module)
-		for (const [name, clss] of this.classes.entries())
-			RasPG.registerClass(name, clss)
-		for (const [name, component] of this.components.entries())
-			RasPG.registerComponent(name, component)
+		for (const module of this.modules.values())
+			RasPG.registerModule(module)
+		for (const clss of this.classes.values())
+			RasPG.registerClass(clss)
+		for (const component of this.components.values())
+			RasPG.registerComponent(component)
 		RasPG.runtime.extensions.set(this.name, this)
 	}
-} RasPG.registerClass('Extension', Extension)
+} RasPG.registerClass(Extension)
 
 //# Subclasses
 class Area extends GameObject {
@@ -2025,7 +2041,7 @@ class Area extends GameObject {
 	has(object) {
 		return this._container.has(object)
 	}
-} RasPG.registerClass('Area', Area)
+} RasPG.registerClass(Area)
 
 //# Components
 class Stateful extends Component {
@@ -2126,7 +2142,7 @@ class Stateful extends Component {
 		HookModule.run('after:Stateful.instance.define', arguments, this)
 		return this
 	}
-}  RasPG.registerComponent('Stateful', Stateful)
+}  RasPG.registerComponent(Stateful)
 class Stringful extends Component {
 	static reference = '_strings'
 	static serializer = function(instance) {
@@ -2300,7 +2316,7 @@ class Stringful extends Component {
 		HookModule.run('after:Stringful.instance.define', arguments, this)
 		return this
 	}
-}  RasPG.registerComponent('Stringful', Stringful)
+}  RasPG.registerComponent(Stringful)
 class Describable extends Component {
 	static reference = '_description'
 	static requires = [Stringful]
@@ -2364,7 +2380,7 @@ class Describable extends Component {
 		HookModule.run('Describable.instance.morph', arguments, this)
 		return RasPG.currentLocaleAdapter?.morph(this.parent.id, gloss)
 	}
-}  RasPG.registerComponent('Describable', Describable)
+}  RasPG.registerComponent(Describable)
 class Perceptible extends Component {
 	static reference = '_perceptions'
 	static requires = [Stringful]
@@ -2523,7 +2539,7 @@ class Perceptible extends Component {
 		HookModule.run('after:Perceptible.instance.perceive', arguments, this)
 		return found
 	}
-}  RasPG.registerComponent('Perceptible', Perceptible)
+}  RasPG.registerComponent(Perceptible)
 class Tangible extends Component {
 	static reference = '_location'
 	static serializer = function(instance) {
@@ -2647,7 +2663,7 @@ class Tangible extends Component {
 
 		return actualObject._location.locationArray.includes(this.location)
 	}
-}  RasPG.registerComponent('Tangible', Tangible)
+}  RasPG.registerComponent(Tangible)
 class Countable extends Component {
 	static reference = '_count'
 	static requires = [Tangible]
@@ -2701,7 +2717,7 @@ class Countable extends Component {
 
 		HookModule.run('after:Countable.instance.subtract', arguments, this)
 	}
-}  RasPG.registerComponent('Countable', Countable)
+}  RasPG.registerComponent(Countable)
 class Containing extends Component {
 	static reference = '_container'
 	static serializer = function(instance) {
@@ -2883,7 +2899,7 @@ class Containing extends Component {
 
 		return this.#contents.has(actualObject.id)
 	}
-}  RasPG.registerComponent('Containing', Containing)
+}  RasPG.registerComponent(Containing)
 class Actionable extends Component {
 	static reference = '_actions'
 	static requires = [Tangible]
@@ -3069,7 +3085,7 @@ class Actionable extends Component {
 		HookModule.run('after:Actionable.instance.agentsCannot', arguments, this)
 		return ret
 	}
-}  RasPG.registerComponent('Actionable', Actionable)
+}  RasPG.registerComponent(Actionable)
 class Agentive extends Component {
 	static reference = '_acts'
 	static serializer = function(instance) {
