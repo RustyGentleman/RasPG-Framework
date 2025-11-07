@@ -1244,13 +1244,9 @@ class SubTextModule {
 		return string
 	}
 } RasPG.registerModule(SubTextModule)
-class TemplateModule {
+class TemplateModule extends RegistryBase {
 	/** @type {{name: string, serialized: {id: string, tags: string[], components: {}}, constructor: function, instances: number}} */
-	static #all = new Map()
-
-	static get all() {
-		return new Map(this.#all)
-	}
+	static _all = new Map()
 
 	/** Instantiates an object from a template and returns it. Instance will be tagged with `'TEMPLATE:<name>'`.
 	 * @param {string} name
@@ -1259,12 +1255,12 @@ class TemplateModule {
 		HookModule.run('before:Template.instantiate', arguments, this)
 
 		RasPG.dev.validate.type('Template.instantiate.name', name, 'string')
-		if (!this.#all.has(name))
+		if (!this._all.has(name))
 			return RasPG.dev.logs.elementNotRegisteredInCollection(name, 'Template.#all')
 
 		RasPG.runtime.state.inner.push('instantiating')
 
-		const registered = this.#all.get(name)
+		const registered = this._all.get(name)
 		registered.serialized.id += '__i' + registered.instances++
 		const instance = registered.constructor.deserializer(registered.serialized)
 		instance.tag('TEMPLATE:'+name)
@@ -1282,20 +1278,18 @@ class TemplateModule {
 	}
 	/** Serializes and registers a GameObject (or subclass) instance as a template under the given name. It is recommended to set `register: false` when creating a GameObject to serve as a template.
 	 * @param {string} name
-	 * @param {Object} object
+	 * @param {GameObject} object
 	 */
 	static register(name, object) {
 		HookModule.run('before:Template.register', arguments, this)
 
-		RasPG.dev.validate.type('Template.constructor.id', name, 'string')
-		if (TemplateModule.#all.has(name))
-			throw RasPG.dev.exceptions.GeneralIDConflict('Template.#all', name)
+		RasPG.dev.validate.type('TemplateModule.register.object', object, 'GameObject')
 
 		RasPG.runtime.state.inner.push('serializing')
 		const serialized = object.constructor.serializer(object)
 		RasPG.runtime.state.inner.pop()
 
-		TemplateModule.#all.set(name, { name, serialized, constructor: object.constructor, instances: 0 })
+		super.register(name, { name, serialized, constructor: object.constructor, instances: 0 })
 
 		HookModule.run('after:Template.register', arguments, this)
 	}
