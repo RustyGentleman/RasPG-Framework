@@ -1362,21 +1362,105 @@ class ParserModule {
 } RasPG.registerModule(ParserModule)
 
 //# Classes
-/**
- * @classdesc Game object.
- *
- * @prop {Stateful} _states
- * @prop {Stringful} _strings
- * @prop {Perceptible} _perceptions
- * @prop {Tangible} _location
- * @prop {Countable} _count
- * @prop {Containing} _container
- * @prop {Actionable} _actions
- * @prop {Agentive} _acts
- */
-class GameObject {
+class RegistryBase {
+	/** @type {Map<string, any>} */
+	static _all = new Map()
+	_id
+
+	static get all() {
+		return new Map(this._all)
+	}
+
+	get id() {
+		return this._id
+	}
+	get baseID() {
+		const match = this._id.match(/^(.+?)__i\d+$/)
+		if (match)
+			return match[1]
+		else return this._id
+	}
+
+	/** Registers an element under a unique ID in the registry.
+	 * @param {string} id
+	 * @param {any} value
+	 */
+	static register(id, value) {
+		HookModule.run('before:RegistryBase.register', arguments, this)
+
+		RasPG.dev.validate.type('RegistryBase.register.id', id, 'string')
+
+		if (this._all.has(id))
+			throw RasPG.dev.exceptions.GeneralIDConflict('RegistryBase.#all', id)
+
+		value._id = id
+		this._all.set(id, value)
+
+		HookModule.run('after:RegistryBase.register', arguments, this)
+		return this
+	}
+	/** Returns an element by exact ID, `null`, if not found.
+	 * @param {string} id
+	 * @returns {any | null}
+	 */
+	static getByID(id) {
+		HookModule.run('RegistryBase.getByID', arguments, this)
+
+		RasPG.dev.validate.type('RegistryBase.getByID.id', id, 'string')
+
+		const ret = this._all.get(id)
+		if (ret) 
+			return ret
+		RasPG.dev.logs.elementNotRegisteredInCollection(id, 'RegistryBase.#all')
+		return null
+	}
+	/** Returns an array containing all elements with the given baseID.
+	 * @param {string} baseID
+	 * @returns {any}
+	 */
+	static getAllByBaseID(baseID) {
+		HookModule.run('RegistryBase.getByBaseID', arguments, this)
+
+		RasPG.dev.validate.type('RegistryBase.getByBaseID.id', baseID, 'string')
+
+		const ret = Array.from(this._all.values())
+			.filter(e => e.baseID === baseID)
+
+		if (ret.length === 0)
+			RasPG.dev.logs.elementNotRegisteredInCollection(baseID, 'RegistryBase.#all')
+		return ret
+	}
+	/** Performs fuzzy matching on IDs. Supports RegEx-like `^` and `$`, for beginning and end, and `*`, for wildcard. Always returns an array.
+	 * @param {string} pattern
+	 * @returns {any[]}
+	 */
+	static findFuzzy(pattern) {
+		HookModule.run('RegistryBase.findFuzzy', arguments, this)
+		RasPG.dev.validate.type('RegistryBase.findFuzzy.pattern', pattern, 'string')
+
+		let results = Array.from(this._all.entries())
+			.filter(([id, element]) => id.match(new RegExp(pattern.replaceAll('*', '.*'))))
+			.map(([id, element]) => element)
+
+		return results
+	}
+	/** Returns all entries matching a predicate function.
+	 * @param {(value: any, id: string) => boolean} predicate
+	 * @returns {any[]}
+	 */
+	static filter(predicate) {
+		HookModule.run('RegistryBase.filter', arguments, this)
+
+		RasPG.dev.validate.type('RegistryBase.filter.predicate', predicate, 'function')
+
+		const results = Array.from(this._all.entries()).filter(predicate)
+
+		return results
+	}
+} RasPG.registerClass(RegistryBase)
+class GameObject extends RegistryBase {
 	/** @type {Map<string, GameObject>} */
-	static #all = new Map()
+	static _all = new Map()
 	static serializer = function(object) {
 		const data = {
 			class: object.constructor.name,
@@ -1400,7 +1484,6 @@ class GameObject {
 		}
 		return object
 	}
-	#id
 	#tags = new Set()
 	_components = new Map()
 
@@ -1420,10 +1503,10 @@ class GameObject {
 			components: ['Array<object | function | string>', 'Array<typeof Component | Component | string>'],
 			register: 'boolean'
 		})
-		if (GameObject.#all.has(id))
+		if (GameObject._all.has(id))
 			throw RasPG.dev.exceptions.ObjectIDConflict(id)
 
-		this.#id = id
+		this._id = id
 		if (options?.tags)
 			for (const tag of options.tags)
 				this.tag(tag)
@@ -1435,49 +1518,16 @@ class GameObject {
 		// 	return proxy
 		// }
 		if (options?.register !== false)
-			GameObject.#all.set(id, this)
+			GameObject._all.set(id, this)
 
 		HookModule.run('after:GameObject.constructor', arguments, this)
 		return this
 	}
 
-	static get all() {
-		return new Map(this.#all)
-	}
-	get id() {
-		return this.#id
-	}
-	get baseID() {
-		const match = this.#id.match(/^(.+?)__i\d+$/)
-		if (match)
-			return match[1]
-		else return this.#id
-	}
 	get tags() {
 		return new Set(this.#tags)
 	}
 
-	/** Returns the object with the given ID (strict), if found, or `null`, if not found.
-	 * @param {string} id Convention: all lowercase, no spaces.
-	 */
-	static getByID(id) {
-		HookModule.run('GameObject.getByID', arguments, this)
-		return this.#all.get(id) || null
-	}
-	/** Returns an array of objects that match the given baseID.
-	 * @param {string} baseID Convention: all lowercase, no spaces.
-	 */
-	static getAllByBaseID(baseID) {
-		HookModule.run('GameObject.getAllByBaseID', arguments, this)
-
-		const found = []
-
-		for (const object of this.all.values())
-			if (object.baseID === baseID)
-				found.push(object)
-
-		return found
-	}
 	/** Attempts to resolve an object ID (soft*) to an instance. Optionally checks if it inherits from a given class, and/ir if it contains a given component or set of components.
 	 *
 	 * \*: If `id` is a string with the 'instantiate:' prefix, will instantiate the given template and return it, if found.
@@ -1667,17 +1717,11 @@ class Component {
 		return this.constructor.serializer(this)
 	}
 } RasPG.registerClass(Component)
-class Action {
+class Action extends RegistryBase {
 	/** @type {Map<string, Action>} */
-	static #all = new Map()
-	/** @type {string} */
-	#id
+	static _all = new Map()
 	/** @type {(...args: any[]) => boolean} */
 	#fn
-
-	static get all() {
-		return new Map(this.#all)
-	}
 
 	/** Registers a new action.
 	 * @param {string} id Convention: all lowercase, no spaces.
@@ -1686,18 +1730,12 @@ class Action {
 	static register(id, fn) {
 		HookModule.run('before:Action.register', arguments, this)
 
-		RasPG.dev.validate.types('Action.register', {
-			id: [id, 'string'],
-			fn: [fn, 'function'],
-		})
-		if (this.#all.has(id))
-			throw RasPG.dev.exceptions.GeneralIDConflict('Action.#all', id)
+		RasPG.dev.validate.type('Action.register.fn', fn, 'function')
 
 		const action = new Action()
-		action.#id = id
 		action.#fn = fn
 
-		this.#all.set(id, action)
+		super.register(id, action)
 
 		HookModule.run('after:Action.register', arguments, this)
 		return this
@@ -1735,7 +1773,7 @@ class Action {
 	static perform(id, args) {
 		HookModule.run('before:Action.perform', arguments, this)
 
-		const action = this.#all.get(id)
+		const action = this._all.get(id)
 		if (!action) {
 			RasPG.dev.logs.elementNotRegisteredInCollection(id, 'Action.#all')
 			return null
