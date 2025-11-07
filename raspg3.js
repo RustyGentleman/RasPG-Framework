@@ -3279,3 +3279,152 @@ SubTextModule.registerComplexSubstitution('morph', [/[\s\S]+/, /[a-zA-Z0-9.-]+/]
 		return false
 	return locale.morph(objectID, gloss)
 })
+Action.registerGroup('movement', [
+	['move', (mover, destination) => {
+		RasPG.dev.validate.types('Action.movement.move', {
+			mover: [mover, 'GameObject'],
+			destination: [destination, 'string | GameObject']
+		})
+		if (!mover.hasComponent(Tangible))
+			return false
+		return mover._location.moveTo(destination)
+	}],
+	['remove', (object) => {
+		RasPG.dev.validate.types('Action.movement.remove', {
+			object: [object, 'GameObject']
+		})
+		if (!object.hasComponent(Tangible))
+			return false
+		object._location.removeFromWorld()
+		return true
+	}]
+])
+Action.registerGroup('container', [
+	['add', (container, item, count) => {
+		RasPG.dev.validate.types('Action.container.add', {
+			container: [container, 'GameObject'],
+			item: [item, 'GameObject']
+		})
+
+		if (!container.hasComponent(Containing))
+			return false
+		if (!item.hasComponent(Tangible))
+			return false
+		if (container._container.filter && !container._container.filter(item))
+			return false
+
+		if (item.hasComponent(Countable)) {
+			const total = item._count.count
+			const amount = count ?? total
+			if (amount <= 0 || amount > total)
+				return false
+
+			// check if container already has same item id
+			const existing = container._container.contents.find(obj => obj.id === item.id)
+			if (existing && existing.hasComponent(Countable)) {
+				Action.perform('count.increase', [existing, amount])
+				if (amount < total)
+					item._count.subtract(amount)
+				return true
+			}
+
+			if (amount < total)
+				item._count.subtract(amount)
+
+			container._container.add(item)
+			return true
+		}
+
+		return !!container._container.add(item)
+	}],
+	['remove', (container, item, count) => {
+		RasPG.dev.validate.types('Action.container.remove', {
+			container: [container, 'GameObject'],
+			item: [item, 'GameObject']
+		})
+
+		if (!container.hasComponent(Containing))
+			return false
+		if (!container._container.has(item))
+			return false
+
+		if (item.hasComponent(Countable)) {
+			const total = item._count.count
+			const amount = count ?? total
+			if (amount <= 0 || amount > total)
+				return false
+
+			if (amount < total)
+				item._count.subtract(amount)
+			else
+				container._container.remove(item)
+
+			return true
+		}
+
+		return container._container.remove(item)
+	}],
+	['transfer', (source, target, item, count) => {
+		RasPG.dev.validate.types('Action.container.transfer', {
+			source: [source, 'GameObject'],
+			target: [target, 'GameObject'],
+			item: [item, 'GameObject']
+		})
+
+		if (!source.hasComponent(Containing) || !target.hasComponent(Containing))
+			return false
+		if (!source._container.has(item))
+			return false
+		if (target._container.filter && !target._container.filter(item))
+			return false
+
+		if (item.hasComponent(Countable)) {
+			const total = item._count.count
+			const amount = count ?? total
+			if (amount <= 0 || amount > total)
+				return false
+
+			const existing = target._container.contents.find(obj => obj.id === item.id)
+			if (existing && existing.hasComponent(Countable)) {
+				Action.perform('count.increase', [existing, amount])
+				item._count.subtract(amount)
+				return true
+			}
+
+			if (amount < total)
+				item._count.subtract(amount)
+
+			source._container.remove(item, false)
+			target._container.add(item)
+			return true
+		}
+
+		source._container.remove(item, false)
+		target._container.add(item)
+		return true
+	}]
+])
+Action.registerGroup('count', [
+	['increase', (object, amount = 1) => {
+		RasPG.dev.validate.types('Action.count.increase', {
+			object: [object, 'GameObject'],
+			amount: [amount, 'number']
+		})
+		if (!object.hasComponent(Countable))
+			return false
+		object._count.add(amount)
+		return true
+	}],
+	['decrease', (object, amount = 1) => {
+		RasPG.dev.validate.types('Action.count.decrease', {
+			object: [object, 'GameObject'],
+			amount: [amount, 'number']
+		})
+		if (!object.hasComponent(Countable))
+			return false
+		if (object._count.count - amount < 0)
+			return false
+		object._count.subtract(amount)
+		return true
+	}]
+])

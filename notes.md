@@ -29,6 +29,11 @@
 - AI -> Willful? Volitional? Deliberate?
 
 # Todo
+## Urgent
+- implement object base ID matching (same item type, not identical ID)
+- figure out string composition and error backpropagation
+- change instances of strict ID matching that should be baseID
+	- Containing .has()
 ## All
 - find 'let's that should be 'constant's
 - event emits consistency check
