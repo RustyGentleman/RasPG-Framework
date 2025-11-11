@@ -44,6 +44,13 @@ class RasPG {
 		logWarnings: true,
 		logErrors: true,
 		serializeFunctions: false,
+		components: {
+			containing: {
+				allowSameBaseID: true,
+				strictRemove: true,
+				strictHas: true,
+			},
+		}
 	}
 	static utils = {
 		lang: {
@@ -2629,13 +2636,14 @@ class Tangible extends Component {
 			return location
 
 		const previous = this.#location
+
 		if (passOn !== false)
-			if (this.#location !== undefined)
-				this.location?._container.remove(this.parent, false)
+			this.location?._container.remove(this.parent, {strict: true, passOn: false})
+
 		this.#location = location.id
+
 		if (passOn !== false)
-			if (this.#location !== undefined)
-				this.location?._container.add(this.parent, {passOn: false})
+			this.location?._container.add(this.parent, {passOn: false})
 
 		EventModule.emitPropertyEvents({
 			object: this.parent,
@@ -2659,7 +2667,7 @@ class Tangible extends Component {
 
 		const previous = this.#location
 		if (passOn !== false)
-			this.location._container.remove(this.parent, false)
+			this.location._container.remove(this.parent, {strict: true, passOn: false})
 		this.#location = null
 
 		EventModule.emitPropertyEvents({
@@ -2805,9 +2813,10 @@ class Containing extends Component {
 	}
 
 	/** Adds an object to the container. Returns the component instance back for further operations, unless the object couldn't be found (returns null) or isn't Tangible (returns false).
-	 * @param {GameObject | string} object
-	 * @param {{ignoreFilter?: boolean, passOn?: boolean}} options
+	 * @param {GameObject | string} object GameObject instance or string containing the ID of a GameObject instance.
+	 * @param {{ignoreFilter?: boolean, allowSameBaseID?: boolean, passOn?: boolean}} options
 	 * @param options.ignoreFilter If set to `true`, object will be added to container regardless of a present filter.
+	 * @param options.allowSameBaseID Whether to allow the operation if an object with the same baseID as the given object is already contained within. Default behavior can be configured in `RasPG.config.components.containing.allowSameBaseID`.
 	 * @param options.passOn INTERNAL USE: if anything but `false`, will call the current (if existent) container's `remove` method and new container's `add` method.
 	 */
 	add(object, options) {
@@ -2819,47 +2828,72 @@ class Containing extends Component {
 				throw RasPG.dev.exceptions.TemplateReferenceViolation('Containing.instance.add', object)
 
 			this.#contents.add(object)
+			return this
 		}
-		else {
-			const actualObject = GameObject.resolve(object, { component: Tangible, operation: 'Container.instance.add' })
-			if (!actualObject)
-				return actualObject
-			if (this.#contents.has(actualObject.id))
-				return this
-			if (options?.ignoreFilter !== true && this.#filter && !this.#filter(actualObject))
-				return this
 
-			if (options?.passOn !== false)
-				actualObject._location.moveTo(this.parent, false)
-			this.#contents.add(actualObject.id)
+		RasPG.dev.validate.type('Containing.instance.add.object', object, 'GameObject | string')
+		RasPG.dev.validate.props('Containing.instance.add.options', options, false, {
+			ignoreFilter: 'boolean',
+			allowSameBaseID: 'boolean',
+			passOn: 'boolean',
+		})
 
-			EventModule.emit('container.added', {
-				object: this.parent,
-				item: actualObject
-			})
-		}
+		const actualObject = GameObject.resolve(object, { component: Tangible, operation: 'Container.instance.add' })
+		if (!actualObject)
+			return actualObject
+		if (this.has(actualObject, {strict: true}))
+			return this
+		if (this.has(actualObject, {strict: false}))
+			if (options?.allowSameBaseID === false || !RasPG.config.components.containing.allowSameBaseID)
+				return this
+		if (options?.ignoreFilter !== true && this.#filter && !this.#filter(actualObject))
+			return this
+
+		if (options?.passOn !== false)
+			actualObject._location.moveTo(this.parent, false)
+		this.#contents.add(actualObject.id)
+
+		EventModule.emit('container.added', {
+			object: this.parent,
+			item: actualObject
+		})
 
 		HookModule.run('after:Container.instance.add', arguments, this)
 		return this
 	}
 	/** Removes an object from the container. Returns the component instance back for further operations.
 	 * @param {GameObject | string} object
-	 * @param {boolean} passOn INTERNAL USE: if anything but `false`, will call the current (if existent) container's `remove` method and new container's `add` method.
+	 * @param {{strict?: boolean, passOn?: boolean}} options
+	 * @param options.strict If `true`, compares the full ID, and if `false`, compares baseID. Default behavior can be configured in `RasPG.config.components.containing.strictRemove`.
+	 * @param options.passOn INTERNAL USE: if anything but `false`, will call the current (if existent) container's `remove` method and new container's `add` method.
 	 */
-	remove(object, passOn) {
+	remove(object, options) {
 		HookModule.run('before:Container.instance.remove', arguments, this)
 
-		let actualID = object
-		if (typeof object === 'string')
-			actualID = RasPG.dev.resolveSoftsearch(object, Array.from(this.#contents))
-		const actualObject = GameObject.resolve(actualID, { component: Tangible, operation: 'Container.instance.remove' })
+		if (RasPG.runtime.state.inner.get() == 'templating') {
+			RasPG.dev.validate.type('Containing.instance.remove.object', object, 'string')
+
+			this.#contents.delete(object)
+			return this
+		}
+
+		RasPG.dev.validate.type('Containing.instance.remove.object', object, 'GameObject | string')
+		RasPG.dev.validate.props('Containing.instance.remove.options', options, false, {
+			strict: 'boolean',
+			passOn: 'boolean'
+		})
+
+
+		if (options?.strict || RasPG.config.components.containing.strictRemove) {
+		}
+		const actualObject = GameObject.resolve(object, { component: Tangible, operation: 'Container.instance.remove' })
 
 		if (!actualObject)
 			return this
-		if (!this.has(actualObject))
+		if (!this.has(actualObject, {strict: true}))
 			return this
 
-		if (passOn !== false)
+		if (options.passOn !== false)
 			actualObject._location.removeFromWorld(false)
 		this.#contents.delete(actualObject.id)
 
@@ -2916,20 +2950,22 @@ class Containing extends Component {
 		HookModule.run('after:Containing.instance.emptyInto', arguments, this)
 		return allSuccessful
 	}
-	/** Returns whether the given object is contained within the container.
+	/** Returns whether the container already includes the object.
 	 * @param {GameObject | string} object
+	 * @param {{strict?: boolean}} options
+	 * @param options.strict If `true`, compares the full ID, and if `false`, compares baseID. Default behavior can be configured in `RasPG.config.components.containing.strictHas`.
 	 */
-	has(object) {
+	has(object, options) {
 		HookModule.run('Container.instance.has', arguments, this)
 
-		let actualID = object
-		if (typeof object === 'string')
-			actualID = RasPG.dev.resolveSoftsearch(object, Array.from(this.#contents))
-		const actualObject = GameObject.resolve(actualID, { component: Tangible, operation: 'Container.instance.has' })
-		if (!actualObject)
-			return actualObject
+		RasPG.dev.validate.type('Container.instance.has.object', object, 'GameObject | string')
+		RasPG.dev.validate.props('Container.instance.has.options', options, false, {
+			strict: 'boolean'
+		})
 
-		return this.#contents.has(actualObject.id)
+		let id = typeof object === 'string'? object : options?.strict === true? object.id : object.baseID
+
+		return !!this.#contents.find(e => options?.strict === true? e.id === id : e.baseID === id)
 	}
 }  RasPG.registerComponent(Containing)
 class Actionable extends Component {
