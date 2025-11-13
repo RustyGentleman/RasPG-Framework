@@ -30,10 +30,8 @@
 
 # Todo
 ## Urgent
-- implement object base ID matching (same item type, not identical ID)
 - figure out string composition and error backpropagation
-- change instances of strict ID matching that should be baseID
-	- Containing .has()
+- turn resolution
 ## All
 - find 'let's that should be 'constant's
 - event emits consistency check
@@ -53,8 +51,8 @@
 - hasComponent -> is?
 - structured objects as templates (use deserialize to create instances)
 ### Containing
-- implement empty and emptyInto
-- filter, weight/count capacity
+- implement empty
+- make `container.remove` default action account for allowSameBaseID
 ### Actionable, Agentive
 - per-object act(ion) aliases (map name -> alias[])
 ### Actionable

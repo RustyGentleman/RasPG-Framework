@@ -116,7 +116,7 @@ class RasPG {
 		constructors: {
 			/**
 			 * @param {any} initialValue
-			 * @param {{onPush?: Function, onPop?: Function, onGet?: Function}} callbacks 
+			 * @param {{onPush?: Function, onPop?: Function, onGet?: Function}} callbacks
 			 */
 			valueStack(initialValue, callbacks) {
 				const stack = [initialValue]
@@ -124,18 +124,18 @@ class RasPG {
 				return {
 					push(val) {
 						stack.unshift(val)
-						if (callbacks.onPush) 
+						if (callbacks.onPush)
 							callbacks.onPush(val, stack)
 					},
 					pop() {
 						const val = stack.shift()
-						if (callbacks.onPop) 
+						if (callbacks.onPop)
 							callbacks.onPop(val, stack)
 						return val
 					},
 					get() {
 						const val = stack.at(0) || undefined
-						if (callbacks.onGet) 
+						if (callbacks.onGet)
 							callbacks.onGet(val, stack)
 						return val
 					},
@@ -456,6 +456,8 @@ class RasPG {
 							if (typeStr.match(/^[A-Z]/))
 								return val instanceof RasPG.runtime.components.get(typeStr)
 									|| val instanceof RasPG.runtime.classes.get(typeStr)
+									|| RasPG.runtime.components.get(typeStr)?.isPrototypeOf(val.prototype)
+									|| RasPG.runtime.classes.get(typeStr)?.isPrototypeOf(val.prototype)
 							if (typeStr.match(/(['"])([^'"\n]+)\1/))
 								return (typeof val === 'string' && val === typeStr.match(/(['"])([^'"\n]+)\1/)[2])
 							return typeof val === typeStr
@@ -523,7 +525,7 @@ class RasPG {
 					this.type(path+'.'+param, value, typeSpec)
 				return true
 			},
-			/** 
+			/**
 			 * @param {string} elementName
 			 * @param {string} version
 			 */
@@ -744,7 +746,7 @@ class EventModule {
 		HookModule.run('before:EventModule.emit', arguments, this)
 
 		if (this.logInfo) {
-			console.groupCollapsed(`[\x1b[36;1mEvent\x1b[0m - \x1b[33m${event}\x1b[0m on \x1b[93m${data.object? data.object instanceof GameObject? 'ID:'+data.object.id : data.label?? data.object.name : 'unlabelled'}\x1b[0m]`)
+			console.groupCollapsed(`[\x1b[36;1mEvent\x1b[0m - \x1b[33m${event}\x1b[0m on \x1b[93m${data.object? GameObject.isPrototypeOf(data.object.prototype)? 'ID:'+data.object.id : data.label?? data.object.name : 'unlabelled'}\x1b[0m]`)
 			console.info(data)
 			console.groupEnd()
 		}
@@ -1155,7 +1157,7 @@ class SubTextModule {
 				//* If it is, look for context object
 				const [, contextLabel, stringKey] = parts
 				const contextObject = ContextModule.get(contextLabel)
-				if (!contextObject || !(contextObject instanceof GameObject) || !contextObject.hasComponent(Stringful)) {
+				if (!contextObject || !GameObject.isPrototypeOf(contextObject.prototype) || !contextObject.hasComponent(Stringful)) {
 					//* Collapse double space
 					string = string
 						.replace(inplace, '{MISSING}')
@@ -1366,6 +1368,7 @@ class ParserModule {
 class RegistryBase {
 	/** @type {Map<string, any>} */
 	static _all = new Map()
+	static _prefix = ''
 	_id
 
 	static get all() {
@@ -1373,10 +1376,10 @@ class RegistryBase {
 	}
 
 	get id() {
-		return this._id
+		return this._id.slice(this.prototype._prefix.length)
 	}
 	get baseID() {
-		const match = this._id.match(/^(.+?)__i\d+$/)
+		const match = this.id.match(/^(.+?)__i\d+$/)
 		if (match)
 			return match[1]
 		else return this._id
@@ -1391,13 +1394,30 @@ class RegistryBase {
 
 		RasPG.dev.validate.type('RegistryBase.register.id', id, 'string')
 
-		if (this._all.has(id))
+		if (this._all.has(this._prefix+id))
 			throw RasPG.dev.exceptions.GeneralIDConflict('RegistryBase.#all', id)
 
-		value._id = id
-		this._all.set(id, value)
+		value._id = this._prefix+id
+		this._all.set(this._prefix+id, value)
 
 		HookModule.run('after:RegistryBase.register', arguments, this)
+		return this
+	}
+	/** Unregisters (essentially deletes) an element under a unique ID in the registry.
+	 * @param {string} id
+	 * @param {any} value
+	 */
+	static unregister(id) {
+		HookModule.run('before:RegistryBase.unregister', arguments, this)
+
+		RasPG.dev.validate.type('RegistryBase.unregister.id', id, 'string')
+
+		if (!this._all.has(this._prefix+id))
+			throw RasPG.dev.logs.elementNotRegisteredInCollection(id, 'RegistryBase.#all')
+
+		this._all.delete(this._prefix+id)
+
+		HookModule.run('after:RegistryBase.unregister', arguments, this)
 		return this
 	}
 	/** Returns an element by exact ID, `null`, if not found.
@@ -1409,15 +1429,14 @@ class RegistryBase {
 
 		RasPG.dev.validate.type('RegistryBase.getByID.id', id, 'string')
 
-		const ret = this._all.get(id)
-		if (ret) 
+		const ret = this._all.get(this._prefix+id)?? this._all.find(e => e.id === id)
+		if (ret)
 			return ret
 		RasPG.dev.logs.elementNotRegisteredInCollection(id, 'RegistryBase.#all')
 		return null
 	}
 	/** Returns an array containing all elements with the given baseID.
 	 * @param {string} baseID
-	 * @returns {any}
 	 */
 	static getAllByBaseID(baseID) {
 		HookModule.run('RegistryBase.getByBaseID', arguments, this)
@@ -1440,7 +1459,7 @@ class RegistryBase {
 		RasPG.dev.validate.type('RegistryBase.findFuzzy.pattern', pattern, 'string')
 
 		let results = Array.from(this._all.entries())
-			.filter(([id, element]) => id.match(new RegExp(pattern.replaceAll('*', '.*'))))
+			.filter(([id, element]) => id.match(new RegExp(this._prefix+pattern.replaceAll('*', '.*'))))
 			.map(([id, element]) => element)
 
 		return results
@@ -1457,6 +1476,16 @@ class RegistryBase {
 		const results = Array.from(this._all.entries()).filter(predicate)
 
 		return results
+	}
+
+	/** Unregisters (essentially deletes) the object from its class registry.
+	 */
+	unregister() {
+		HookModule.run('before:RegistryBase.instance.unregister', arguments, this)
+
+		this.prototype.unregister(this.id)
+
+		HookModule.run('after:RegistryBase.instance.unregister', arguments, this)
 	}
 } RasPG.registerClass(RegistryBase)
 class GameObject extends RegistryBase {
@@ -1519,7 +1548,7 @@ class GameObject extends RegistryBase {
 		// 	return proxy
 		// }
 		if (options?.register !== false)
-			GameObject._all.set(id, this)
+			GameObject.register(id, this)
 
 		HookModule.run('after:GameObject.constructor', arguments, this)
 		return this
@@ -1786,6 +1815,106 @@ class Action extends RegistryBase {
 		return ret
 	}
 } RasPG.registerClass(Action)
+class Command extends RegistryBase {
+	/** @type {Map<string, Command>} */
+	static _all = new Map()
+	static _prefix = 'C__'
+
+	/** @type {{ [localeCode: string]: { pattern: RegExp, filters: { [slot: string]: (object: GameObject) => boolean } } }} */
+	matchers = {}
+	/** @type {(match: RegExpMatchArray, objects: GameObject[], options?: Object, this: Command) => void} */
+	fn
+
+	/** Note: matcher RegEx patterns must use named capture groups to indicate slots for, e.g., direct and indirect objects in ditransitive verbs.
+	 * @param {string} id
+	 * @param {typeof this.matchers} matchers
+	 * @param {typeof this.fn} fn
+	 */
+	constructor(id, matchers, fn) {
+		HookModule.run('before:Command.constructor', arguments, this)
+
+		RasPG.dev.validate.types('Command.constructor', {
+			id: [id, 'string'],
+			matchers: [matchers, 'object'],
+			fn: [fn, ['function', '(match, objects, options?) => void']],
+		})
+		for (const [locale, object] of Object.entries(matchers)) {
+			RasPG.dev.validate.type('Command.constructor.matchers.'+locale+'.pattern', object.pattern, 'RegExp')
+			RasPG.dev.validate.props('Command.constructor.matchers.'+locale+'.filters', object.filters, false, {
+				'*': 'function'
+			})
+		}
+
+		this.matchers = matchers
+		this.fn = fn
+
+		Command.register(id, this)
+
+		HookModule.run('after:Command.constructor', arguments, this)
+	}
+
+	/** Returns a command that match the given input. If multiple commands match, returns an array. If none match, returns `null`.
+	 * @param {string} input Normalized player input.
+	 */
+	static match(input) {
+		HookModule.run('Command.match', arguments, this)
+
+		RasPG.dev.validate.type('Command.match.input', input, 'string')
+
+		let ret = []
+		for (const command of this._all.values()) {
+			const matcher = command.matchers[RasPG.config.locale]?? null
+			if (matcher && input.match(new RegExp(matcher.pattern, 'i')))
+				ret.push(command)
+		}
+
+		if (ret.length === 0)
+			return null
+		if (ret.length === 1)
+			return ret[0]
+		return ret
+	}
+
+	/** Runs the appropriate filters for each object slot and returns their returns. If the command has no matchers for the current locale, returns `null`.
+	 * @param {{ [slot: string]: GameObject }} slots
+	 * @return {{ [slot: string]: boolean } | null}
+	 */
+	filter(slots) {
+		HookModule.run('Command.instance.filter', arguments, this)
+
+		const filters = this.matchers[RasPG.config.locale]?.filters
+		if (!filters)
+			return null
+
+		let ret = {}
+		for (const [slot, object] of Object.entries(slots))
+			if (slot in filters)
+				ret[slot] = filters[slot](object)
+			else {
+				RasPG.dev.logs.elementNotRegisteredInCollection(slot, `Command.${this.id}.matchers.${RasPG.config.locale}.filters`)
+				ret[slot] = null
+			}
+
+		return ret
+	}
+	/** Runs the command.
+	 * @param {RegExpMatchArray} match The result from matching player input to the command's matcher.
+	 * @param {GameObject[]} objects All objects that matched player input. Order dictated by the parser.
+	 * @param {Object} [options]
+	 */
+	run(match, objects, options) {
+		HookModule.run('before:Command.instance.run', arguments, this)
+
+		RasPG.dev.validate.types('Command.instance.run', {
+			match: [match, 'RegExpMatchArray'],
+			objects: [objects, 'GameObject[]'],
+		})
+
+		this.fn(match, objects, options)
+
+		HookModule.run('after:Command.instance.run', arguments, this)
+	}
+}
 class LocalizationAdapter {
 	author
 	version
@@ -1971,6 +2100,7 @@ class Extension {
 //# Subclasses
 class Area extends GameObject {
 	static defaultComponents = ['Stringful', 'Containing']
+	static _prefix = 'A__'
 	static serializer = function(object) {
 		return Object.assign(GameObject.serializer(object), {description: object.description})
 	}
@@ -1987,13 +2117,15 @@ class Area extends GameObject {
 	constructor(id, options) {
 		HookModule.run('before:Area.constructor', arguments, Area)
 
-		if (options)
-			if ('components' in options)
-				options.components.push(...Area.defaultComponents)
-			else
-				options.components = Area.defaultComponents
+		if (options === undefined)
+			options = {}
+		if ('components' in options)
+			options.components.push(...Area.defaultComponents)
+		else
+			options.components = Area.defaultComponents
 
-		super('A__'+id, options?? {components: Area.defaultComponents})
+		super(Area._prefix+id, options?? {components: Area.defaultComponents})
+		Area.register(this.id, this)
 
 		this._strings?.define({
 			name: options.name?? id,
@@ -2006,12 +2138,6 @@ class Area extends GameObject {
 		HookModule.run('after:Area.constructor', arguments, Area)
 	}
 
-	get id() {
-		return super.id.slice(3)
-	}
-	get baseID() {
-		return super.baseID.slice(3)
-	}
 	get name() {
 		return this._strings.get('name')
 	}
@@ -2028,13 +2154,6 @@ class Area extends GameObject {
 		return this._container?.filter
 	}
 
-	/** Returns the area with the given ID (strict), if found, or `null`, if not found.
-	 * @param {string} id Convention: all lowercase, no spaces.
-	 */
-	static getByID(id) {
-		HookModule.run('Area.getByID', arguments, this)
-		return super.getByID('A__'+id)
-	}
 	/** Attempts to resolve an area ID (soft*) to an instance. Optionally checks if it inherits from a given class, and/ir if it contains a given component or set of components.
 	 *
 	 * \*: If `id` is a string with the 'instantiate:' prefix, will instantiate the given template and return it, if found.
@@ -2047,38 +2166,7 @@ class Area extends GameObject {
 		HookModule.run('Area.resolve', arguments, this)
 		if (!('proto' in options))
 			options.proto = this
-		return super.resolve('A__'+id, options)
-	}
-	/** Proxy for the Area's Containing component method. Adds an object to the container. Returns the component instance back for further operations, unless the object couldn't be found (returns null) or isn't Tangible (returns false).
-	 * @param {GameObject | string} object
-	 * @param {{ignoreFilter?: boolean, passOn?: boolean}} options
-	 * @param options.ignoreFilter If set to `true`, object will be added to container regardless of a present filter.
-	 * @param options.passOn INTERNAL USE: if anything but `false`, will call the current (if existent) container's `remove` method and new container's `add` method.
-	 */
-	add(object, options) {
-		return this._container.add(object, options)
-	}
-	/** Proxy for the Area's Containing component method. Removes an object from the container. Returns the component instance back for further operations.
-	 * @param {GameObject | string} object
-	 * @param {boolean} passOn INTERNAL USE: if anything but `false`, will call the current (if existent) container's `remove` method and new container's `add` method.
-	 */
-	remove(object, passOn) {
-		return this._container.remove(object, passOn)
-	}
-	/** Proxy for the Area's Containing component method. Sets a filter function that dictates what kinds of GameObjects the container allows. Returns the component instance back for further operations.
-	 * @param {(GameObject) => boolean} predicate
-	 */
-	setFilter(predicate) {
-		return this._container.setFilter(predicate)
-	}
-	emptyInto(container) {
-		return this._container.emptyInto(container)
-	}
-	/** Proxy for the Area's Containing component method. Returns whether the given object is contained within the container.
-	 * @param {GameObject | string} object
-	 */
-	has(object) {
-		return this._container.has(object)
+		return super.resolve(id, options)
 	}
 } RasPG.registerClass(Area)
 
@@ -2169,7 +2257,7 @@ class Stateful extends Component {
 		return true
 	}
 	/** Defines (creates/sets) variables in bulk. Returns the component instance back for further operations.
-	 * @param {{overwrite?: boolean, [variable: string]: boolean | number | undefined}} options 
+	 * @param {{overwrite?: boolean, [variable: string]: boolean | number | undefined}} options
 	 */
 	define(options) {
 		HookModule.run('before:Stateful.instance.define', arguments, this)
@@ -2272,7 +2360,7 @@ class Stringful extends Component {
 		return true
 	}
 	/** Defines global string in bulk. Returns the component instance back for further operations. Will prefix with the identifier for the current locale, if not already prefixed (will check first part of domain and check against identifiers for available locales).
-	 * @param {{[key: string]: string | () => string}} options 
+	 * @param {{[key: string]: string | () => string}} options
 	 */
 	static define(options) {
 		HookModule.run('before:Stringful.global.define', arguments, this)
@@ -2344,7 +2432,7 @@ class Stringful extends Component {
 	/** Defines strings in bulk. Returns the component instance back for further operations.
 	 *
 	 * If not already prefixed with a locale ID, will prefix with current locale ID.
-	 * @param {{[key: string]: string | () => string}} options 
+	 * @param {{[key: string]: string | () => string}} options
 	 */
 	define(options) {
 		HookModule.run('before:Stringful.instance.define', arguments, this)
@@ -2549,7 +2637,7 @@ class Perceptible extends Component {
 		})
 		if (!this.#perceptions.has(sense))
 			return null
-		if (!(sensor instanceof GameObject))
+		if (!GameObject.isPrototypeOf(sensor.prototype))
 			throw RasPG.dev.exceptions.NotGameObject()
 
 		const perceptions = this.#perceptions.get(sense)
@@ -2609,7 +2697,7 @@ class Tangible extends Component {
 		const path = [current]
 		const visited = new Set()
 
-		while (current instanceof GameObject && current.hasComponent(Tangible)) {
+		while (GameObject.isPrototypeOf(current.prototype) && current.hasComponent(Tangible)) {
 			const location = current.component(Tangible).location
 			path.push(location)
 			if (visited.has(location))
@@ -2667,7 +2755,7 @@ class Tangible extends Component {
 
 		const previous = this.#location
 		if (passOn !== false)
-			this.location._container.remove(this.parent, {strict: true, passOn: false})
+			this.location?._container.remove(this.parent, {strict: true, passOn: false})
 		this.#location = null
 
 		EventModule.emitPropertyEvents({
@@ -2788,7 +2876,7 @@ class Containing extends Component {
 		return new Set(
 			Array.from(this.#contents)
 				.map(e => GameObject.resolve(e, { operation: 'Containing.instance.get.contents' }))
-				.filter(e => e instanceof GameObject)
+				.filter(e => GameObject.isPrototypeOf(e.prototype))
 		)
 	}
 	get contentsNested() {
@@ -2883,17 +2971,20 @@ class Containing extends Component {
 			passOn: 'boolean'
 		})
 
+		if (!this.has(object, {strict: options?.strict?? RasPG.config.components.containing.strictRemove}))
+			return this
 
-		if (options?.strict || RasPG.config.components.containing.strictRemove) {
-		}
-		const actualObject = GameObject.resolve(object, { component: Tangible, operation: 'Container.instance.remove' })
+		let actualObject = object
+		if (typeof object === 'string')
+			if (options?.strict || RasPG.config.components.containing.strictRemove)
+				actualObject = GameObject.resolve(object, { component: Tangible, operation: 'Container.instance.remove' })
+			else
+				actualObject = this.contents.find(e => e.baseID === object)
 
 		if (!actualObject)
 			return this
-		if (!this.has(actualObject, {strict: true}))
-			return this
 
-		if (options.passOn !== false)
+		if (options?.passOn !== false)
 			actualObject._location.removeFromWorld(false)
 		this.#contents.delete(actualObject.id)
 
@@ -2903,6 +2994,30 @@ class Containing extends Component {
 		})
 		HookModule.run('after:Container.instance.remove', arguments, this)
 		return this
+	}
+	/** Returns a contained object by exact ID, if present, or `null`, if not present.
+	 * @param {string} id Convention: all lowercase, no spaces.
+	 */
+	getByID(id) {
+		HookModule.run('Containing.instance.findByID', arguments, this)
+
+		RasPG.dev.validate.type('Containing.instance.findByID.id', id, 'string')
+
+		if (this.#contents.has(id))
+			return GameObject.resolve(id, { component: Tangible })
+		return null
+	}
+	/** Returns an array containing all contained objects with the given baseID.
+	 * @param {string} id Convention: all lowercase, no spaces.
+	 */
+	getAllByBaseID(id) {
+		HookModule.run('Containing.instance.findByID', arguments, this)
+
+		RasPG.dev.validate.type('Containing.instance.findByID.id', id, 'string')
+
+		return Array.from(this.#contents.values())
+			.map(e => GameObject.resolve(e, { component: Tangible }))
+			.filter(e => GameObject.isPrototypeOf(e) && e.baseID === id)
 	}
 	/** Sets a filter function that dictates what kinds of GameObjects the container allows. Returns the component instance back for further operations.
 	 * @param {(GameObject) => boolean} predicate
@@ -2929,11 +3044,12 @@ class Containing extends Component {
 		if (typeof container === 'string') {
 			actualObject = GameObject.resolve(container, {component: Containing, operation: 'Containing.instance.emptyInto'})
 			if (!actualObject)
-				return actualContainer
+				return actualObject
 		}
-		else if (container instanceof GameObject)
+		else if (GameObject.isPrototypeOf(container.prototype))
 			actualObject = container
-		if (container instanceof GameObject)
+
+		if (GameObject.isPrototypeOf(container.prototype))
 			if (container.hasComponent(Containing))
 				actualContainer = container.component(Containing)
 			else {
@@ -2943,7 +3059,7 @@ class Containing extends Component {
 			actualContainer = container
 
 		let allSuccessful = true
-		for (const item of new Set(this.contents))
+		for (const item of this.contents)
 			if (!actualContainer.add(item))
 				allSuccessful = false
 
@@ -3020,7 +3136,7 @@ class Actionable extends Component {
 		HookModule.run('after:Actionable.registerAction', arguments, this)
 	}
 	/** Registers action objects in to the component's registry in bulk. Each object is comprised of a callback (representing the action itself), and, optionally, a predicate (representing requirements for the action to be performed). Returns the component instance back for further operations.
-	 * @param {{[name: string]: {callback: (agent: GameObject) => (void | string), predicate?: (agent: GameObject) => boolean}}} options 
+	 * @param {{[name: string]: {callback: (agent: GameObject) => (void | string), predicate?: (agent: GameObject) => boolean}}} options
 	 */
 	static defineActions(options) {
 		HookModule.run('before:Actionable.defineActions', arguments, this)
@@ -3205,7 +3321,7 @@ class Agentive extends Component {
 		HookModule.run('after:Agentive.registerAct', arguments, this)
 	}
 	/** Registers act objects in to the component's registry in bulk. Each object is comprised of a callback (representing the act itself), and, optionally, a predicate (representing requirements for the act to be performed). Returns the component instance back for further operations.
-	 * @param {{[name: string]: {callback: (agent: GameObject) => (void | string), predicate?: (agent: GameObject) => boolean}}} options 
+	 * @param {{[name: string]: {callback: (agent: GameObject) => (void | string), predicate?: (agent: GameObject) => boolean}}} options
 	 */
 	static defineActs(options) {
 		HookModule.run('before:Agentive.defineActs', arguments, this)
@@ -3353,16 +3469,18 @@ Action.registerGroup('movement', [
 			mover: [mover, 'GameObject'],
 			destination: [destination, 'string | GameObject']
 		})
+
 		if (!mover.hasComponent(Tangible))
 			return false
+
 		return mover._location.moveTo(destination)
 	}],
 	['remove', (object) => {
-		RasPG.dev.validate.types('Action.movement.remove', {
-			object: [object, 'GameObject']
-		})
+		RasPG.dev.validate.type('Action.movement.remove.object', object, 'GameObject')
+
 		if (!object.hasComponent(Tangible))
 			return false
+
 		object._location.removeFromWorld()
 		return true
 	}]
@@ -3371,127 +3489,111 @@ Action.registerGroup('container', [
 	['add', (container, item, count) => {
 		RasPG.dev.validate.types('Action.container.add', {
 			container: [container, 'GameObject'],
-			item: [item, 'GameObject']
+			item: [item, ['GameObject | string', `GameObject | string | 'instantiate:<name>`]]
 		})
 
 		if (!container.hasComponent(Containing))
 			return false
-		if (!item.hasComponent(Tangible))
+
+		let actualItem = item
+		if (typeof item === 'string')
+			actualItem = GameObject.resolve(item, { component: Tangible })
+
+		if (typeof item !== 'string' && !item.hasComponent(Tangible))
 			return false
 		if (container._container.filter && !container._container.filter(item))
 			return false
 
-		if (item.hasComponent(Countable)) {
-			const total = item._count.count
-			const amount = count ?? total
-			if (amount <= 0 || amount > total)
-				return false
+		if (actualItem.hasComponent(Countable)) {
+			const existing = Array.from(container._container.contents).find(obj => obj.baseID === actualItem.baseID)
 
-			// check if container already has same item id
-			const existing = container._container.contents.find(obj => obj.id === item.id)
 			if (existing && existing.hasComponent(Countable)) {
-				Action.perform('count.increase', [existing, amount])
-				if (amount < total)
-					item._count.subtract(amount)
+				Action.perform('count.add', [existing, count?? actualItem._count.count ])
+				Action.perform('count.subtract', [existing, count?? actualItem._count.count ])
 				return true
 			}
 
-			if (amount < total)
-				item._count.subtract(amount)
+			if (count !== undefined)
+				actualItem._count.set(count)
 
-			container._container.add(item)
-			return true
+			return !!container._container.add(actualItem)
 		}
 
-		return !!container._container.add(item)
+		return !!container._container.add(actualItem)
 	}],
 	['remove', (container, item, count) => {
 		RasPG.dev.validate.types('Action.container.remove', {
 			container: [container, 'GameObject'],
-			item: [item, 'GameObject']
+			item: [item, 'GameObject | string']
 		})
 
 		if (!container.hasComponent(Containing))
 			return false
-		if (!container._container.has(item))
+
+		let actualItem = item
+		if (typeof item === 'string')
+			actualItem = GameObject.resolve(item, { component: Tangible })
+		if (!actualItem)
 			return false
 
-		if (item.hasComponent(Countable)) {
-			const total = item._count.count
-			const amount = count ?? total
-			if (amount <= 0 || amount > total)
+		const strict = RasPG.config.components.containing.strictRemove
+		if (!strict) {
+			if (!container._container.has(actualItem, { strict: true }))
+				actualItem = container._container.getAllByBaseID(item)?.at(0)
+			if (!actualItem)
 				return false
+		} else if (!container._container.has(actualItem, { strict }))
+			return false
 
-			if (amount < total)
-				item._count.subtract(amount)
-			else
-				container._container.remove(item)
+		if (actualItem.hasComponent(Countable) && count !== undefined)
+			return Action.perform('count.subtract', [actualItem, count])
 
-			return true
-		}
-
-		return container._container.remove(item)
+		container._container.remove(actualItem)
+		return true
 	}],
 	['transfer', (source, target, item, count) => {
 		RasPG.dev.validate.types('Action.container.transfer', {
 			source: [source, 'GameObject'],
 			target: [target, 'GameObject'],
-			item: [item, 'GameObject']
+			item: [item, 'GameObject | string']
 		})
 
-		if (!source.hasComponent(Containing) || !target.hasComponent(Containing))
+		if (!source.hasComponent(Containing))
 			return false
 		if (!source._container.has(item))
 			return false
-		if (target._container.filter && !target._container.filter(item))
-			return false
 
-		if (item.hasComponent(Countable)) {
-			const total = item._count.count
-			const amount = count ?? total
-			if (amount <= 0 || amount > total)
-				return false
+		let actualItem = item
+		if (typeof item === 'string')
+			actualItem = GameObject.resolve(item, { component: Tangible })
 
-			const existing = target._container.contents.find(obj => obj.id === item.id)
-			if (existing && existing.hasComponent(Countable)) {
-				Action.perform('count.increase', [existing, amount])
-				item._count.subtract(amount)
-				return true
-			}
-
-			if (amount < total)
-				item._count.subtract(amount)
-
-			source._container.remove(item, false)
-			target._container.add(item)
-			return true
-		}
-
-		source._container.remove(item, false)
-		target._container.add(item)
-		return true
+		return Action.perform('container.add', [target, actualItem, count])
 	}]
 ])
 Action.registerGroup('count', [
-	['increase', (object, amount = 1) => {
+	['add', (object, amount = 1) => {
 		RasPG.dev.validate.types('Action.count.increase', {
 			object: [object, 'GameObject'],
 			amount: [amount, 'number']
 		})
+
 		if (!object.hasComponent(Countable))
 			return false
+
 		object._count.add(amount)
 		return true
 	}],
-	['decrease', (object, amount = 1) => {
+	['subtract', (object, amount = 1) => {
 		RasPG.dev.validate.types('Action.count.decrease', {
 			object: [object, 'GameObject'],
 			amount: [amount, 'number']
 		})
+
 		if (!object.hasComponent(Countable))
 			return false
 		if (object._count.count - amount < 0)
 			return false
+
 		object._count.subtract(amount)
 		return true
 	}]
